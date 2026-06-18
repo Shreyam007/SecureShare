@@ -184,17 +184,8 @@ function App() {
       const fileId = match[1];
       setDownloadFileId(fileId);
       setView('download_portal');
-      // If we have token, we can fetch immediately
-      if (token) {
-        fetchDownloadMetadata(fileId, token);
-      } else {
-        // Redirection logic for guest visitors
-        setRedirectPath(`/download/${fileId}`);
-        setTimeout(() => {
-          setApiError('Authentication required. Please login to receive the secure file.');
-          setView('login');
-        }, 100);
-      }
+      setRedirectPath(`/download/${fileId}`);
+      fetchDownloadMetadata(fileId, token);
     }
   }, []);
 
@@ -265,20 +256,15 @@ function App() {
 
   const fetchDownloadMetadata = async (fileId, userToken) => {
     const token = userToken || localStorage.getItem('token');
-    if (!token) {
-      setRedirectPath(`/download/${fileId}`);
-      setApiError('Authentication required. Please login to receive the secure file.');
-      setView('login');
-      return;
-    }
-
     setDownloadMetaLoading(true);
     setDownloadMetaError('');
     try {
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const response = await fetch(`${API_BASE_URL}/files/metadata/${fileId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers
       });
       const data = await response.json();
       if (data.success && data.file) {
@@ -1240,20 +1226,18 @@ function App() {
     setDownloadSuccess('');
 
     const token = localStorage.getItem('token');
-    if (!token) {
-      setDownloadError('Not authorized, token missing. Please sign in again.');
-      return;
-    }
-
     try {
       const url = downloadMetadata.passwordProtected
         ? `${API_BASE_URL}/files/download/${downloadFileId}?password=${encodeURIComponent(downloadPassword)}`
         : `${API_BASE_URL}/files/download/${downloadFileId}`;
 
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers
       });
 
       if (response.ok) {

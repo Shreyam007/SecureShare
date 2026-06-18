@@ -187,7 +187,7 @@ router.get('/', protect, async (req, res) => {
 // @route   GET /api/files/metadata/:id
 // @desc    Get file metadata (verifies validity of token/expiration/limit)
 // @access  Private (requires token)
-router.get('/metadata/:id', protect, async (req, res) => {
+router.get('/metadata/:id', async (req, res) => {
   try {
     const fileId = req.params.id;
     let fileMetadata = null;
@@ -291,7 +291,7 @@ router.get('/metadata/:id', protect, async (req, res) => {
 // @route   GET /api/files/download/:id
 // @desc    Download and decrypt file by ID
 // @access  Private
-router.get('/download/:id', protect, async (req, res) => {
+router.get('/download/:id', async (req, res) => {
   try {
     const fileId = req.params.id;
     let fileMetadata = null;
