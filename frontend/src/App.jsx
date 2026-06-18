@@ -2526,6 +2526,226 @@ function App() {
           </div>
         </section>
 
+        {/* User Dashboard Showcase Section */}
+        <section style={{ padding: '80px 0', backgroundColor: '#fffdf9', borderTop: '1px solid #f4f4f5' }}>
+          <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', textAlign: 'center' }}>
+            <h2 style={{ fontSize: '38px', fontWeight: '800', color: '#18181b', marginBottom: '16px', letterSpacing: '-1.5px', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+              User Dashboard
+            </h2>
+            <p style={{ fontSize: '16px', color: '#71717a', maxWidth: '800px', margin: '0 auto 60px auto', lineHeight: '1.6', fontWeight: '500', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+              Give authenticated users a central hub to manage everything they've uploaded. The dashboard is the control center for all file activity.
+            </p>
+            
+            <div className="bottom-features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '40px' }}>
+              {/* File Overview */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+                <div style={{
+                  width: '100%',
+                  height: '180px',
+                  backgroundColor: '#f9f6ed',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '24px',
+                  padding: '16px',
+                  boxSizing: 'border-box'
+                }}>
+                  {/* Left Mockup Illustration */}
+                  <div style={{
+                    width: '95%',
+                    height: '90%',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e4e4e7',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
+                    padding: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    boxSizing: 'border-box'
+                  }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#ef4444' }}></span>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#fbbf24' }}></span>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+                    </div>
+                    {/* Fake rows */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '800', color: '#a1a1aa', borderBottom: '1px solid #f4f4f5', paddingBottom: '4px' }}>
+                      <span>File Name</span>
+                      <span>Downloads</span>
+                      <span>Status</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', fontWeight: '600', color: '#27272a' }}>
+                      <span>📄 contract.pdf</span>
+                      <span>12 / 20</span>
+                      <span style={{ fontSize: '8px', color: '#065f46', backgroundColor: '#d1fae5', padding: '2px 6px', borderRadius: '10px', fontWeight: '700' }}>Active</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', fontWeight: '600', color: '#27272a' }}>
+                      <span>🖼️ logo.png</span>
+                      <span>5 / 5</span>
+                      <span style={{ fontSize: '8px', color: '#92400e', backgroundColor: '#fef3c7', padding: '2px 6px', borderRadius: '10px', fontWeight: '700' }}>Limit</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', fontWeight: '600', color: '#27272a' }}>
+                      <span>🎥 demo.mp4</span>
+                      <span>0 / 10</span>
+                      <span style={{ fontSize: '8px', color: '#991b1b', backgroundColor: '#fee2e2', padding: '2px 6px', borderRadius: '10px', fontWeight: '700' }}>Expired</span>
+                    </div>
+                  </div>
+                </div>
+                <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#18181b', marginBottom: '10px', letterSpacing: '-0.5px', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                  File Overview
+                </h3>
+                <p style={{ fontSize: '14px', color: '#71717a', lineHeight: '1.6', margin: 0, fontWeight: '500', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                  Display file name, upload date, download count, expiry date, and current status
+                </p>
+              </div>
+
+              {/* File Actions */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+                <div style={{
+                  width: '100%',
+                  height: '180px',
+                  backgroundColor: '#f2f0e6',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '24px',
+                  padding: '16px',
+                  boxSizing: 'border-box'
+                }}>
+                  {/* Middle Mockup Illustration */}
+                  <div style={{
+                    width: '80%',
+                    height: '85%',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e4e4e7',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    boxSizing: 'border-box',
+                    position: 'relative'
+                  }}>
+                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>File Actions</span>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#18181b' }}>database.sqlite</span>
+                    <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                      <button style={{
+                        flex: 1,
+                        backgroundColor: '#ef4444',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '8px 0',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'default'
+                      }}>Delete</button>
+                      <button style={{
+                        flex: 1,
+                        backgroundColor: '#f59e0b',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '8px 0',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'default'
+                      }}>Revoke</button>
+                    </div>
+                  </div>
+                </div>
+                <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#18181b', marginBottom: '10px', letterSpacing: '-0.5px', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                  File Actions
+                </h3>
+                <p style={{ fontSize: '14px', color: '#71717a', lineHeight: '1.6', margin: 0, fontWeight: '500', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                  Delete files, revoke active share links, and view detailed statistics
+                </p>
+              </div>
+
+              {/* Statistics */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+                <div style={{
+                  width: '100%',
+                  height: '180px',
+                  backgroundColor: '#f5f3e7',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '24px',
+                  padding: '16px',
+                  boxSizing: 'border-box'
+                }}>
+                  {/* Right Mockup Illustration */}
+                  <div style={{
+                    width: '95%',
+                    height: '90%',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e4e4e7',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
+                    padding: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    boxSizing: 'border-box'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '9px', fontWeight: '800', color: '#a1a1aa' }}>DOWNLOAD TRENDS</span>
+                      <span style={{ fontSize: '10px', fontWeight: '800', color: '#10b981' }}>+48%</span>
+                    </div>
+                    {/* Mini Charts */}
+                    <div style={{ display: 'flex', gap: '8px', height: '60px', alignItems: 'flex-end', borderBottom: '1px solid #f4f4f5', paddingBottom: '4px' }}>
+                      {/* Bar 1 */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
+                        <div style={{ width: '100%', height: '30%', backgroundColor: '#cbd5e1', borderRadius: '3px 3px 0 0' }}></div>
+                        <span style={{ fontSize: '7px', color: '#a1a1aa' }}>M</span>
+                      </div>
+                      {/* Bar 2 */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
+                        <div style={{ width: '100%', height: '60%', backgroundColor: '#cbd5e1', borderRadius: '3px 3px 0 0' }}></div>
+                        <span style={{ fontSize: '7px', color: '#a1a1aa' }}>T</span>
+                      </div>
+                      {/* Bar 3 */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
+                        <div style={{ width: '100%', height: '45%', backgroundColor: '#cbd5e1', borderRadius: '3px 3px 0 0' }}></div>
+                        <span style={{ fontSize: '7px', color: '#a1a1aa' }}>W</span>
+                      </div>
+                      {/* Bar 4 */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
+                        <div style={{ width: '100%', height: '80%', backgroundColor: '#6366f1', borderRadius: '3px 3px 0 0' }}></div>
+                        <span style={{ fontSize: '7px', color: '#a1a1aa', fontWeight: 'bold' }}>T</span>
+                      </div>
+                      {/* Bar 5 */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
+                        <div style={{ width: '100%', height: '55%', backgroundColor: '#cbd5e1', borderRadius: '3px 3px 0 0' }}></div>
+                        <span style={{ fontSize: '7px', color: '#a1a1aa' }}>F</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '700', color: '#71717a' }}>
+                      <span>Total Downloads</span>
+                      <span>154</span>
+                    </div>
+                  </div>
+                </div>
+                <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#18181b', marginBottom: '10px', letterSpacing: '-0.5px', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                  Statistics
+                </h3>
+                <p style={{ fontSize: '14px', color: '#71717a', lineHeight: '1.6', margin: 0, fontWeight: '500', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                  Track total uploads, active links, and download trends over time
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Detailed 3-Column Features Section */}
         <section id="features-section" className="bottom-features-section">
           <div className="container">
