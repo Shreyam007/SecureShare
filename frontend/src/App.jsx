@@ -588,7 +588,7 @@ function App() {
   };
 
   const handleTableCopyLink = (fileId) => {
-    const downloadLink = `http://localhost:5173/download/${fileId}`;
+    const downloadLink = `${window.location.origin}/download/${fileId}`;
     navigator.clipboard.writeText(downloadLink);
     setTableCopiedId(fileId);
     setTimeout(() => {
@@ -665,7 +665,7 @@ function App() {
   };
 
   const handleCopyLink = (fileId) => {
-    const downloadLink = `http://localhost:5173/download/${fileId}`;
+    const downloadLink = `${window.location.origin}/download/${fileId}`;
     navigator.clipboard.writeText(downloadLink);
     alert(`Copied link to clipboard: ${downloadLink}`);
   };
@@ -930,7 +930,7 @@ function App() {
 
   // 4. RENDER SHARE VIEW (Premium file ready page)
   if (view === 'share' && sharingFile) {
-    const downloadLink = `http://localhost:5173/download/${sharingFile.id || sharingFile._id}`;
+    const downloadLink = `${window.location.origin}/download/${sharingFile.id || sharingFile._id}`;
     return (
       <div className="grid-container">
         <div className="app-wrapper">
