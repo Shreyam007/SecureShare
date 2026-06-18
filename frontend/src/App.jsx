@@ -511,7 +511,7 @@ function App() {
           const btnElem = document.getElementById('google-signin-btn');
           if (btnElem) {
             window.google.accounts.id.initialize({
-              client_id: '135623497828-ffmbq9r8g32hhbi9jo44qq7ganv29n5a.apps.googleusercontent.com',
+              client_id: '135623497828-ffmbq9r8g32hhbi9jo44q97ganv29n5a.apps.googleusercontent.com',
               callback: handleGoogleCredentialResponse
             });
             window.google.accounts.id.renderButton(
