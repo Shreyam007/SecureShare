@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+dist/
+build/
+.yarn/
+.pnpm-store/
+
+# Environment secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temp and Upload storage files
+backend/uploads/*.enc
+backend/uploads/*.dec
+*.log
+.system_generated/
+scratch/
+test-upload.txt
+scratch-test.js
+
+# OS files
+.DS_Store
+Thumbs.db

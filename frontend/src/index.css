@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  
+  /* Color Palette */
+  --bg-primary: #f8fafc;
+  --text-primary: #09090b;
+  --text-secondary: #3f3f46;
+  --text-muted: #71717a;
+  
+  --border-color: #e4e4e7;
+  --border-accent: #d4d4d8;
+  
+  /* Accent Colors */
+  --color-indigo: #3b82f6; /* Slate blue */
+  --color-indigo-light: #eff6ff;
+  --color-green: #10b981;
+  --color-green-light: #d1fae5;
+  --color-blue: #4f46e5;
+  --color-blue-light: #e0e7ff;
+  
+  /* Dark CTA Colors */
+  --bg-dark: #09090b;
+  --text-dark-primary: #ffffff;
+  --text-dark-secondary: #a1a1aa;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+  --shadow-card: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Technical blueprint crossed grid background */
+.grid-container {
+  min-height: 100vh;
+  position: relative;
+  background-color: #f8fafc;
+  background-image: 
+    linear-gradient(to right, rgba(9, 9, 11, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(9, 9, 11, 0.035) 1px, transparent 1px),
+    linear-gradient(45deg, transparent 49.2%, rgba(9, 9, 11, 0.012) 49.2%, rgba(9, 9, 11, 0.012) 50.8%, transparent 50.8%),
+    linear-gradient(-45deg, transparent 49.2%, rgba(9, 9, 11, 0.012) 49.2%, rgba(9, 9, 11, 0.012) 50.8%, transparent 50.8%);
+  background-size: 72px 72px, 72px 72px, 72px 72px, 72px 72px;
+  background-position: center top;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition: all 0.2s ease;
+}
+
+input {
+  font-family: var(--font-sans);
+}
