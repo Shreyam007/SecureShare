@@ -2370,46 +2370,69 @@ function App() {
             <div className="showcase-grid">
               
               {/* Left Mockup Card */}
-              <div className="browser-card">
-                <div className="browser-header">
-                  <div className="browser-dots">
-                    <span className="browser-dot red"></span>
-                    <span className="browser-dot yellow"></span>
-                    <span className="browser-dot green"></span>
+              <div 
+                className="browser-card" 
+                style={{ cursor: 'pointer' }} 
+                onClick={() => { if (user) { setView('dashboard'); } else { setView('signup'); } }}
+              >
+                <div className="browser-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="browser-dots" style={{ display: 'flex', gap: '8px' }}>
+                    <span className="browser-dot" style={{ width: '11px', height: '11px', borderRadius: '50%', backgroundColor: '#e9d5ff' }}></span>
+                    <span className="browser-dot" style={{ width: '11px', height: '11px', borderRadius: '50%', backgroundColor: '#c7d2fe' }}></span>
+                    <span className="browser-dot" style={{ width: '11px', height: '11px', borderRadius: '50%', backgroundColor: '#a7f3d0' }}></span>
                   </div>
-                  <div className="browser-address">secureshare.app/v/x9k2-4m1p</div>
+                  <div style={{
+                    fontSize: '13px',
+                    color: '#71717a',
+                    fontFamily: 'monospace',
+                    background: '#f4f4f5',
+                    padding: '4px 16px',
+                    borderRadius: '6px'
+                  }}>
+                    secureshare.app/v/x9k2-4m1p
+                  </div>
                 </div>
                 
-                <div className="browser-content">
-                  <label 
-                    className={`dropzone-container ${dragActive ? 'drag-active' : ''}`}
-                    onDragEnter={handleDrag}
-                    onDragOver={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDrop={handleDrop}
-                    htmlFor="file-upload-main"
-                  >
-                    <input 
-                      type="file" 
-                      id="file-upload-main" 
-                      style={{ display: 'none' }} 
-                      onChange={handleFileSelect}
-                    />
-                    <div className="dropzone-icon-wrapper">
+                <div className="browser-content" style={{ position: 'relative', overflow: 'hidden', padding: '32px', display: 'flex', flexDirection: 'column' }}>
+                  {/* Dim Background Image Mockup */}
+                  <img 
+                    src="/src/assets/hero.png" 
+                    alt="Mockup Background" 
+                    style={{ 
+                      position: 'absolute', 
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%) rotate(-5deg)',
+                      width: '80%', 
+                      height: 'auto', 
+                      opacity: '0.08', 
+                      pointerEvents: 'none',
+                      zIndex: 1
+                    }} 
+                  />
+                  
+                  <div style={{
+                    border: '1px dashed #cbd5e1',
+                    borderRadius: '12px',
+                    backgroundColor: '#fafafa',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexGrow: 1,
+                    padding: '60px 24px',
+                    textAlign: 'center',
+                    zIndex: 2,
+                    position: 'relative'
+                  }}>
+                    <div className="dropzone-icon-wrapper" style={{ color: '#94a3b8' }}>
                       <CloudUploadIcon />
                     </div>
-                    {selectedFile ? (
-                      <div>
-                        <p className="dropzone-title" style={{ color: '#10b981' }}>Selected: {selectedFile.name}</p>
-                        <p className="dropzone-subtitle">Size: {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB - AES-256 Ready</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="dropzone-title">Drop files here to encrypt and share</p>
-                        <p className="dropzone-subtitle">Max file size: 1GB</p>
-                      </div>
-                    )}
-                  </label>
+                    <div>
+                      <p className="dropzone-title" style={{ color: '#4b5563', margin: '0 0 8px 0' }}>Drop files here to encrypt and share</p>
+                      <p className="dropzone-subtitle" style={{ color: '#9ca3af', margin: 0 }}>Max file size: 10GB</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
