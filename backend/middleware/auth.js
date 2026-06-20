@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretsecuresharekey123!';
+
 const protect = async (req, res, next) => {
   let token;
 
@@ -25,7 +27,7 @@ const protect = async (req, res, next) => {
       }
 
       // Verify normal token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET);
 
       // Get user from the token
       const mongoose = require('mongoose');

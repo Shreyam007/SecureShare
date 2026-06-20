@@ -8,9 +8,12 @@ const mongoose = require('mongoose');
 const memoryStore = require('../config/memoryStore');
 const bcrypt = require('bcryptjs');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretsecuresharekey123!';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '135623497828-ffmbq9r8g32hhbi9jo44q97ganv29n5a.apps.googleusercontent.com';
+
 // Helper to generate JWT
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+  return jwt.sign({ id }, JWT_SECRET, {
     expiresIn: '7d',
   });
 };
@@ -184,11 +187,11 @@ router.post('/google', async (req, res) => {
       avatar = mock.avatar || '';
     } else {
       // Validate Google Token using official client library
-      const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+      const client = new OAuth2Client(GOOGLE_CLIENT_ID);
       try {
         const ticket = await client.verifyIdToken({
           idToken: token,
-          audience: process.env.GOOGLE_CLIENT_ID,
+          audience: GOOGLE_CLIENT_ID,
         });
         const payload = ticket.getPayload();
         email = payload.email;
