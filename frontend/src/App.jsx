@@ -101,9 +101,13 @@ const getApiBaseUrl = () => {
     return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
   }
   // If not set, check if we are on localhost. If so, use local backend port 5000.
-  // Otherwise, route relatively to current origin (in case of same-domain backend deployment or reverse proxy).
+  // Otherwise, fallback to the Render backend (in case of decoupled Vercel + Render deployment).
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:5000/api';
+  }
+  // Default to Render backend for Vercel builds if VITE_API_URL is missing
+  if (window.location.hostname.includes('vercel.app')) {
+    return 'https://secureshare-backend.onrender.com/api';
   }
   return `${window.location.origin}/api`;
 };
@@ -946,7 +950,7 @@ function App() {
             <div className="container">
               <a href="/" className="logo-text" onClick={(e) => { e.preventDefault(); setView('landing'); }}>SecureShare</a>
               <nav className="nav-links">
-                <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); if (user) { setView('landing'); setDashboardTab('upload'); } else { setView('login'); } }}>Dashboard</a>
+                <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); if (user) { setView('landing'); setDashboardTab('dashboard'); } else { setView('login'); } }}>Dashboard</a>
                 <a href="#about" className="nav-link">About</a>
                 <a href="#support" className="nav-link">Support</a>
               </nav>
@@ -1190,7 +1194,7 @@ function App() {
               </button>
               <span style={{ color: '#d1d5db' }}>•</span>
               <button 
-                onClick={() => { setView('landing'); setDashboardTab('upload'); }}
+                onClick={() => { setView('landing'); setDashboardTab('dashboard'); }}
                 style={{
                   backgroundColor: '#ffffff',
                   border: '1px solid #e4e4e7',
@@ -1282,7 +1286,7 @@ function App() {
             <div className="container">
               <a href="/" className="logo-text" onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/'); setView('landing'); }}>SecureShare</a>
               <nav className="nav-links">
-                <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); if (user) { window.history.pushState({}, '', '/'); setView('landing'); setDashboardTab('upload'); } else { setView('login'); } }}>Dashboard</a>
+                <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); if (user) { window.history.pushState({}, '', '/'); setView('landing'); setDashboardTab('dashboard'); } else { setView('login'); } }}>Dashboard</a>
                 <a href="#about" className="nav-link">About</a>
                 <a href="#support" className="nav-link">Support</a>
               </nav>
