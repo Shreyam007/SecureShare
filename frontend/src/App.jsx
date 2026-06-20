@@ -107,7 +107,7 @@ const getApiBaseUrl = () => {
   }
   // Default to Render backend for Vercel builds if VITE_API_URL is missing
   if (window.location.hostname.includes('vercel.app')) {
-    return 'https://secureshare-backend.onrender.com/api';
+    return 'https://secureshare-1der.onrender.com/api';
   }
   return `${window.location.origin}/api`;
 };
@@ -489,10 +489,7 @@ function App() {
 
   const handleGoogleLogin = () => {
     const clientId = '135623497828-ffmbq9r8g32hhbi9jo44q97ganv29n5a.apps.googleusercontent.com';
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const redirectUri = isLocal 
-      ? `${window.location.origin}/login`
-      : 'https://secureshare-shreyams-projects-ee9fdf27.vercel.app/login';
+    const redirectUri = `${window.location.origin}/login`;
     const scope = 'openid email profile';
     const nonce = Math.random().toString(36).substring(2) + Date.now().toString(36);
     
