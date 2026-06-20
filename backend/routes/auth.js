@@ -204,6 +204,41 @@ router.post('/google', async (req, res) => {
       }
     }
 
+    // In-memory fallback
+    if (mongoose.connection.readyState !== 1) {
+      const emailLower = email.toLowerCase();
+      let user = memoryStore.users.find(u => u.googleId === googleId);
+
+      if (!user) {
+        user = memoryStore.users.find(u => u.email === emailLower);
+        if (user) {
+          user.googleId = googleId;
+          if (!user.avatar) user.avatar = avatar;
+        } else {
+          user = {
+            _id: `mock-user-${Date.now()}`,
+            name,
+            email: emailLower,
+            googleId,
+            avatar,
+            createdAt: new Date()
+          };
+          memoryStore.users.push(user);
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        token: generateToken(user._id),
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+        },
+      });
+    }
+
     // Check if user exists with googleId
     let user = await User.findOne({ googleId });
 

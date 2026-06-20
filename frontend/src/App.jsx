@@ -97,8 +97,15 @@ const LogoutIcon = () => (
 
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
-  if (!envUrl) return 'http://localhost:5000/api';
-  return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+  if (envUrl) {
+    return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+  }
+  // If not set, check if we are on localhost. If so, use local backend port 5000.
+  // Otherwise, route relatively to current origin (in case of same-domain backend deployment or reverse proxy).
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5000/api';
+  }
+  return `${window.location.origin}/api`;
 };
 
 const API_BASE_URL = getApiBaseUrl();
