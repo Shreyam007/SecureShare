@@ -489,7 +489,10 @@ function App() {
 
   const handleGoogleLogin = () => {
     const clientId = '135623497828-ffmbq9r8g32hhbi9jo44q97ganv29n5a.apps.googleusercontent.com';
-    const redirectUri = `${window.location.origin}/login`;
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const redirectUri = isLocal 
+      ? `${window.location.origin}/login`
+      : 'https://secureshare-shreyams-projects-ee9fdf27.vercel.app/login';
     const scope = 'openid email profile';
     const nonce = Math.random().toString(36).substring(2) + Date.now().toString(36);
     
