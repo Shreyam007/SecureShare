@@ -95,20 +95,42 @@ const LogoutIcon = () => (
   </svg>
 );
 
+const getFlagEmoji = (countryCode) => {
+  if (!countryCode || countryCode.length !== 2) return '🌐';
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map(char => 127397 + char.charCodeAt(0));
+  try {
+    return String.fromCodePoint(...codePoints);
+  } catch (e) {
+    return '🌐';
+  }
+};
+
+const getTopCountries = (downloads) => {
+  if (!downloads || downloads.length === 0) return [];
+  const counts = {};
+  downloads.forEach(d => {
+    const key = d.countryCode || 'US';
+    if (!counts[key]) {
+      counts[key] = { code: key, name: d.countryName || 'United States', count: 0 };
+    }
+    counts[key].count += 1;
+  });
+  return Object.values(counts).sort((a, b) => b.count - a.count);
+};
+
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) {
     return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
   }
   // If not set, check if we are on localhost. If so, use local backend port 5000.
-  // Otherwise, fallback to the Render backend (in case of decoupled Vercel + Render deployment).
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:5000/api';
   }
-  // Default to Render backend for Vercel builds if VITE_API_URL is missing
-  if (window.location.hostname.includes('vercel.app')) {
-    return 'https://secureshare-1der.onrender.com/api';
-  }
+  // Default to relative API route for Vercel builds
   return `${window.location.origin}/api`;
 };
 
@@ -145,6 +167,18 @@ function App() {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [filePassword, setFilePassword] = useState('');
   const [sharingFile, setSharingFile] = useState(null);
+
+  // Bulk upload and expanded statistics states
+  const [bulkUploadedFiles, setBulkUploadedFiles] = useState([]);
+  const [notifyOnDownload, setNotifyOnDownload] = useState(false);
+  const [expandedFileId, setExpandedFileId] = useState(null);
+
+  // Global bulk settings
+  const [globalExpiration, setGlobalExpiration] = useState('24 Hours');
+  const [globalDownloadLimit, setGlobalDownloadLimit] = useState(1);
+  const [globalPasswordProtected, setGlobalPasswordProtected] = useState(false);
+  const [globalPassword, setGlobalPassword] = useState('');
+  const [globalNotifyOnDownload, setGlobalNotifyOnDownload] = useState(false);
 
   // Download Portal states
   const [downloadFileId, setDownloadFileId] = useState('');
@@ -235,7 +269,8 @@ function App() {
             expiration,
             downloadLimit,
             passwordProtected,
-            password: filePassword
+            password: filePassword,
+            notifyOnDownload
           })
         });
       } catch (err) {
@@ -244,7 +279,7 @@ function App() {
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [expiration, downloadLimit, passwordProtected, filePassword, uploadedFile]);
+  }, [expiration, downloadLimit, passwordProtected, filePassword, notifyOnDownload, uploadedFile]);
 
   const fetchUserProfile = async (token) => {
     try {
@@ -401,6 +436,7 @@ function App() {
     formDataUpload.append('downloadLimit', downloadLimit);
     formDataUpload.append('passwordProtected', passwordProtected);
     formDataUpload.append('password', filePassword);
+    formDataUpload.append('notifyOnDownload', notifyOnDownload);
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_BASE_URL}/files/upload`, true);
@@ -450,18 +486,218 @@ function App() {
     }
   };
 
+  const handleMultipleFilesUpload = async (filesList) => {
+    if (!filesList || filesList.length === 0) return;
+
+    setUploadStatus('UPLOADING');
+    setUploadProgress(0);
+    setUploadedFile(null);
+    setSelectedFile(null);
+    
+    // Initialize bulkUploadedFiles state
+    const initialFiles = filesList.map((file) => ({
+      name: file.name,
+      size: file.size,
+      progress: 0,
+      status: 'UPLOADING',
+      uploadedData: null,
+      expiration: expiration,
+      downloadLimit: downloadLimit,
+      passwordProtected: passwordProtected,
+      password: filePassword,
+      notifyOnDownload: notifyOnDownload
+    }));
+    
+    setBulkUploadedFiles(initialFiles);
+
+    const token = localStorage.getItem('token');
+
+    // Helper to upload a single file in the batch
+    const uploadSingleFile = (file, index) => {
+      return new Promise((resolve) => {
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        formDataUpload.append('expiration', expiration);
+        formDataUpload.append('downloadLimit', downloadLimit);
+        formDataUpload.append('passwordProtected', passwordProtected);
+        formDataUpload.append('password', filePassword);
+        formDataUpload.append('notifyOnDownload', notifyOnDownload);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE_URL}/files/upload`, true);
+        
+        if (token) {
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            
+            // Update individual progress
+            setBulkUploadedFiles((prev) => {
+              const updated = [...prev];
+              if (updated[index]) {
+                updated[index].progress = percent;
+              }
+              // Calculate average progress
+              const totalProgress = updated.reduce((sum, item) => sum + (item.progress || 0), 0);
+              const avgProgress = Math.round(totalProgress / updated.length);
+              setUploadProgress(avgProgress);
+              return updated;
+            });
+          }
+        });
+
+        xhr.onreadystatechange = () => {
+          if (xhr.readyState === XMLHttpRequest.DONE) {
+            setBulkUploadedFiles((prev) => {
+              const updated = [...prev];
+              if (!updated[index]) return prev;
+
+              if (xhr.status === 200 || xhr.status === 201) {
+                updated[index].status = 'COMPLETED';
+                try {
+                  const data = JSON.parse(xhr.responseText);
+                  if (data.success && data.file) {
+                    updated[index].uploadedData = data.file;
+                  }
+                } catch (e) {
+                  console.error('Error parsing response:', e);
+                }
+              } else {
+                updated[index].status = 'ERROR';
+                console.error(`Upload failed for file ${file.name}: ${xhr.responseText}`);
+              }
+              
+              // Check if all files are complete
+              const allDone = updated.every((item) => item.status === 'COMPLETED' || item.status === 'ERROR');
+              if (allDone) {
+                const anySuccess = updated.some((item) => item.status === 'COMPLETED');
+                setUploadStatus(anySuccess ? 'COMPLETED' : 'ERROR');
+                fetchUserFiles();
+                
+                // If there are multiple files or we want to show the bulk share view
+                if (updated.length > 1 && anySuccess) {
+                  // Wait 1 second and then transition to bulk share view
+                  setTimeout(() => {
+                    setView('bulk_share');
+                  }, 1000);
+                } else if (updated.length === 1 && anySuccess) {
+                  // Fallback: single file shows the standard share view
+                  const successFile = updated.find(f => f.status === 'COMPLETED');
+                  setUploadedFile(successFile.uploadedData);
+                }
+              }
+
+              return updated;
+            });
+            resolve();
+          }
+        };
+
+        xhr.send(formDataUpload);
+      });
+    };
+
+    // Run uploads in parallel
+    await Promise.all(filesList.map((file, idx) => uploadSingleFile(file, idx)));
+  };
+
+  const applyGlobalSettings = async () => {
+    const token = localStorage.getItem('token');
+    const updatedFiles = await Promise.all(bulkUploadedFiles.map(async (file) => {
+      if (file.status === 'COMPLETED' && file.uploadedData) {
+        const fileId = file.uploadedData.id || file.uploadedData._id;
+        try {
+          await fetch(`${API_BASE_URL}/files/${fileId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              expiration: globalExpiration,
+              downloadLimit: globalDownloadLimit,
+              passwordProtected: globalPasswordProtected,
+              password: globalPassword,
+              notifyOnDownload: globalNotifyOnDownload
+            })
+          });
+          
+          return {
+            ...file,
+            expiration: globalExpiration,
+            downloadLimit: globalDownloadLimit,
+            passwordProtected: globalPasswordProtected,
+            password: globalPassword,
+            notifyOnDownload: globalNotifyOnDownload,
+            uploadedData: {
+              ...file.uploadedData,
+              expiration: globalExpiration,
+              downloadLimit: globalDownloadLimit,
+              passwordProtected: globalPasswordProtected,
+              notifyOnDownload: globalNotifyOnDownload
+            }
+          };
+        } catch (err) {
+          console.error(`Error updating settings for ${file.name}:`, err);
+        }
+      }
+      return file;
+    }));
+    setBulkUploadedFiles(updatedFiles);
+    alert('Global settings applied to all successfully uploaded files!');
+  };
+
+  const updateIndividualFileSettings = async (index, newSettings) => {
+    const token = localStorage.getItem('token');
+    const file = bulkUploadedFiles[index];
+    if (!file || file.status !== 'COMPLETED' || !file.uploadedData) return;
+
+    const fileId = file.uploadedData.id || file.uploadedData._id;
+    
+    setBulkUploadedFiles((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        ...newSettings
+      };
+      return updated;
+    });
+
+    try {
+      await fetch(`${API_BASE_URL}/files/${fileId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          expiration: newSettings.expiration !== undefined ? newSettings.expiration : file.expiration,
+          downloadLimit: newSettings.downloadLimit !== undefined ? newSettings.downloadLimit : file.downloadLimit,
+          passwordProtected: newSettings.passwordProtected !== undefined ? newSettings.passwordProtected : file.passwordProtected,
+          password: newSettings.password !== undefined ? newSettings.password : file.password,
+          notifyOnDownload: newSettings.notifyOnDownload !== undefined ? newSettings.notifyOnDownload : file.notifyOnDownload
+        })
+      });
+    } catch (err) {
+      console.error(`Error updating settings for ${file.name}:`, err);
+    }
+  };
+
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileUpload(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleMultipleFilesUpload(Array.from(e.dataTransfer.files));
     }
   };
 
   const handleFileSelect = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFileUpload(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      handleMultipleFilesUpload(Array.from(e.target.files));
     }
   };
 
@@ -1232,6 +1468,455 @@ function App() {
     );
   }
 
+  // 6. RENDER BULK SHARE VIEW (Premium multi-file ready page)
+  if (view === 'bulk_share') {
+    const handleCopyAllBulkLinks = () => {
+      const links = bulkUploadedFiles
+        .filter(f => f.status === 'COMPLETED' && f.uploadedData)
+        .map(f => `${window.location.origin}/download/${f.uploadedData.id}`);
+      if (links.length > 0) {
+        navigator.clipboard.writeText(links.join('\n'));
+        alert('All share links copied to clipboard!');
+      }
+    };
+
+    return (
+      <div className="grid-container">
+        <div className="app-wrapper">
+          {/* Header */}
+          <header className="header">
+            <div className="container">
+              <a href="/" className="logo-text" onClick={(e) => { e.preventDefault(); setView('landing'); }}>SecureShare</a>
+              <nav className="nav-links">
+                <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); if (user) { setView('landing'); setDashboardTab('dashboard'); } else { setView('login'); } }}>Dashboard</a>
+                <a href="#about" className="nav-link">About</a>
+                <a href="#support" className="nav-link">Support</a>
+              </nav>
+              <div className="auth-buttons">
+                {user ? (
+                  <div className="user-widget">
+                    <span className="user-name">{user.name}</span>
+                    <button onClick={handleLogout} className="btn-logout">Logout</button>
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={() => setView('login')} className="btn-text">Login</button>
+                    <button onClick={() => setView('signup')} className="btn-primary">Get Started</button>
+                  </>
+                )}
+              </div>
+            </div>
+          </header>
+
+          {/* Bulk Share Content */}
+          <main style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', flexGrow: 1, padding: '40px 24px' }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              backgroundColor: '#d1fae5',
+              border: '8px solid #ecfdf5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#10b981',
+              marginBottom: '24px'
+            }}>
+              <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+
+            <h1 style={{ fontSize: '36px', fontWeight: '800', color: '#09090b', marginBottom: '8px', letterSpacing: '-1px' }}>
+              Files Encrypted & Ready
+            </h1>
+            <p style={{ fontSize: '15px', color: '#71717a', marginBottom: '40px', textAlign: 'center' }}>
+              Configure individual delivery settings or apply global rules across all uploaded files.
+            </p>
+
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '32px',
+              width: '100%',
+              maxWidth: '1200px',
+              marginBottom: '40px',
+              alignItems: 'start'
+            }}>
+              {/* Left Column: Global Configuration Card */}
+              <div style={{
+                flex: '1 1 360px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e4e4e7',
+                borderRadius: '16px',
+                padding: '28px',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.03)',
+                textAlign: 'left'
+              }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#09090b', marginBottom: '6px' }}>Apply to All Files</h3>
+                <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '20px' }}>Apply standard configuration rules to all uploaded items in one click.</p>
+
+                <div className="control-group" style={{ marginBottom: '16px' }}>
+                  <label className="control-label" style={{ fontSize: '12px', fontWeight: '700' }}>Expiration Link</label>
+                  <select 
+                    className="control-select"
+                    value={globalExpiration}
+                    onChange={(e) => setGlobalExpiration(e.target.value)}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e4e4e7', outline: 'none' }}
+                  >
+                    <option value="1 Hour">1 Hour</option>
+                    <option value="6 Hours">6 Hours</option>
+                    <option value="24 Hours">24 Hours</option>
+                    <option value="7 Days">7 Days</option>
+                    <option value="Never">Never</option>
+                  </select>
+                </div>
+
+                <div className="control-group" style={{ marginBottom: '16px' }}>
+                  <label className="control-label" style={{ fontSize: '12px', fontWeight: '700' }}>Download Limit</label>
+                  <input 
+                    type="number"
+                    min="1"
+                    className="control-select"
+                    value={globalDownloadLimit}
+                    onChange={(e) => setGlobalDownloadLimit(parseInt(e.target.value) || 1)}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e4e4e7', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div className="control-group" style={{ marginBottom: '16px' }}>
+                  <div className="toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="toggle-label-desc">
+                      <span className="toggle-title" style={{ fontSize: '13px', fontWeight: '700' }}>Password Protection</span>
+                    </div>
+                    <label className="switch" style={{ scale: '0.9' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={globalPasswordProtected}
+                        onChange={(e) => {
+                          setGlobalPasswordProtected(e.target.checked);
+                          if (!e.target.checked) setGlobalPassword('');
+                        }}
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </div>
+                  {globalPasswordProtected && (
+                    <div style={{ marginTop: '10px' }}>
+                      <input 
+                        type="password" 
+                        className="control-select" 
+                        placeholder="Enter security password"
+                        value={globalPassword}
+                        onChange={(e) => setGlobalPassword(e.target.value)}
+                        style={{ 
+                          padding: '10px 12px',
+                          border: '1px solid #e4e4e7',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          width: '100%',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="control-group" style={{ marginBottom: '24px' }}>
+                  <div className="toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="toggle-label-desc">
+                      <span className="toggle-title" style={{ fontSize: '13px', fontWeight: '700' }}>Download Email Alerts</span>
+                    </div>
+                    <label className="switch" style={{ scale: '0.9' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={globalNotifyOnDownload}
+                        onChange={(e) => setGlobalNotifyOnDownload(e.target.checked)}
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={applyGlobalSettings}
+                  style={{
+                    width: '100%',
+                    backgroundColor: '#4f46e5',
+                    color: '#ffffff',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.15)',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#4338ca'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = '#4f46e5'}
+                >
+                  Apply to All Files
+                </button>
+              </div>
+
+              {/* Right Column: Files List Stack */}
+              <div style={{
+                flex: '2 2 600px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '700', color: '#71717a' }}>
+                    Uploaded Files ({bulkUploadedFiles.filter(f => f.status === 'COMPLETED').length})
+                  </span>
+                  <button 
+                    onClick={handleCopyAllBulkLinks}
+                    style={{
+                      backgroundColor: '#000000',
+                      color: '#ffffff',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2.5" fill="none">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    <span>Copy All Links</span>
+                  </button>
+                </div>
+
+                {bulkUploadedFiles.map((file, idx) => {
+                  const isCompleted = file.status === 'COMPLETED' && file.uploadedData;
+                  const fileId = isCompleted ? (file.uploadedData.id || file.uploadedData._id) : null;
+                  const fileLink = fileId ? `${window.location.origin}/download/${fileId}` : '';
+
+                  return (
+                    <div key={idx} style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e4e4e7',
+                      borderRadius: '16px',
+                      padding: '24px',
+                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.01)',
+                      textAlign: 'left'
+                    }}>
+                      {/* Individual File Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '16px', borderBottom: '1px solid #f4f4f5', paddingBottom: '16px', marginBottom: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                          <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', flexShrink: 0 }}>
+                            <FileIcon />
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <span style={{ fontSize: '14px', fontWeight: '700', color: '#09090b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={file.name}>
+                              {file.name}
+                            </span>
+                            <span style={{ fontSize: '12px', color: '#71717a' }}>{formatBytes(file.size)}</span>
+                          </div>
+                        </div>
+
+                        {isCompleted ? (
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(fileLink);
+                              alert(`Copied link for ${file.name}`);
+                            }}
+                            style={{
+                              backgroundColor: 'transparent',
+                              border: '1px solid #e4e4e7',
+                              borderRadius: '6px',
+                              padding: '6px 12px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              color: '#09090b',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2.5" fill="none">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            <span>Copy Link</span>
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: file.status === 'ERROR' ? '#ef4444' : '#f59e0b' }}>
+                            {file.status === 'ERROR' ? 'Failed' : `Uploading (${file.progress || 0}%)`}
+                          </span>
+                        )}
+                      </div>
+
+                      {isCompleted && (
+                        <div>
+                          {/* Individual Settings */}
+                          <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 640 ? '1fr' : '1fr 1fr', gap: '16px 24px' }}>
+                            <div className="control-group">
+                              <label className="control-label" style={{ fontSize: '11px', fontWeight: '700', color: '#71717a' }}>Expiration</label>
+                              <select 
+                                className="control-select"
+                                value={file.expiration}
+                                onChange={(e) => updateIndividualFileSettings(idx, { expiration: e.target.value })}
+                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e4e4e7', fontSize: '13px' }}
+                              >
+                                <option value="1 Hour">1 Hour</option>
+                                <option value="6 Hours">6 Hours</option>
+                                <option value="24 Hours">24 Hours</option>
+                                <option value="7 Days">7 Days</option>
+                                <option value="Never">Never</option>
+                              </select>
+                            </div>
+
+                            <div className="control-group">
+                              <label className="control-label" style={{ fontSize: '11px', fontWeight: '700', color: '#71717a' }}>Download Limit</label>
+                              <input 
+                                type="number"
+                                min="1"
+                                className="control-select"
+                                value={file.downloadLimit}
+                                onChange={(e) => updateIndividualFileSettings(idx, { downloadLimit: parseInt(e.target.value) || 1 })}
+                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e4e4e7', fontSize: '13px', boxSizing: 'border-box' }}
+                              />
+                            </div>
+
+                            <div className="control-group">
+                              <div className="toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span className="toggle-title" style={{ fontSize: '12px', fontWeight: '700', color: '#71717a' }}>Password Protected</span>
+                                <label className="switch" style={{ scale: '0.8' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={file.passwordProtected}
+                                    onChange={(e) => {
+                                      const updatedProtected = e.target.checked;
+                                      updateIndividualFileSettings(idx, {
+                                        passwordProtected: updatedProtected,
+                                        password: updatedProtected ? file.password : ''
+                                      });
+                                    }}
+                                  />
+                                  <span className="slider"></span>
+                                </label>
+                              </div>
+                              {file.passwordProtected && (
+                                <div style={{ marginTop: '8px' }}>
+                                  <input 
+                                    type="password" 
+                                    className="control-select" 
+                                    placeholder="Enter file password"
+                                    value={file.password}
+                                    onChange={(e) => updateIndividualFileSettings(idx, { password: e.target.value })}
+                                    style={{ 
+                                      padding: '8px 10px',
+                                      border: '1px solid #e4e4e7',
+                                      borderRadius: '6px',
+                                      fontSize: '12px',
+                                      width: '100%',
+                                      outline: 'none',
+                                      boxSizing: 'border-box'
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="control-group">
+                              <div className="toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span className="toggle-title" style={{ fontSize: '12px', fontWeight: '700', color: '#71717a' }}>Email Notifications</span>
+                                <label className="switch" style={{ scale: '0.8' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={file.notifyOnDownload}
+                                    onChange={(e) => updateIndividualFileSettings(idx, { notifyOnDownload: e.target.checked })}
+                                  />
+                                  <span className="slider"></span>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: '16px', backgroundColor: '#fafafa', padding: '10px 14px', borderRadius: '8px', border: '1px solid #f1f1f4', fontSize: '12px', color: '#4b5563', wordBreak: 'break-all' }}>
+                            <strong>Share Link:</strong> {fileLink}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Back Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '14px', fontWeight: '700' }}>
+              <button 
+                onClick={() => { setView('landing'); setDashboardTab('upload'); }}
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e4e4e7',
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  color: '#09090b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none">
+                  <line x1="19" y1="12" x2="5" y2="12" />
+                  <polyline points="12 19 5 12 12 5" />
+                </svg>
+                <span>Upload More Files</span>
+              </button>
+              <button 
+                onClick={() => { setView('landing'); setDashboardTab('dashboard'); }}
+                style={{
+                  backgroundColor: '#000000',
+                  color: '#ffffff',
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span>Go to Dashboard</span>
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </button>
+            </div>
+          </main>
+
+          <footer className="footer" style={{ padding: '40px 0', marginTop: 'auto', backgroundColor: 'transparent', borderTop: 'none' }}>
+            <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="footer-copy">© 2024 SecureShare. AES-256 Encrypted.</span>
+              <div className="footer-links" style={{ gap: '24px' }}>
+                <a href="#privacy" className="footer-link">Privacy Policy</a>
+                <a href="#terms" className="footer-link">Terms of Service</a>
+                <a href="#audit" className="footer-link">Security Audit</a>
+                <a href="#contact" className="footer-link">Contact</a>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </div>
+    );
+  }
+
   const handlePortalDownloadFile = async () => {
     setDownloadError('');
     setDownloadSuccess('');
@@ -1725,6 +2410,7 @@ function App() {
                         id="dashboard-file-upload" 
                         style={{ display: 'none' }} 
                         onChange={handleFileSelect}
+                        multiple
                       />
                       
                       <div className="upload-dropzone-icon">
@@ -1836,6 +2522,23 @@ function App() {
                             />
                           </div>
                         )}
+                      </div>
+
+                      <div className="control-group" style={{ marginTop: '24px' }}>
+                        <div className="toggle-row">
+                          <div className="toggle-label-desc">
+                            <span className="toggle-title">Download Email Alerts</span>
+                            <span className="toggle-subtitle">Notify me on each download</span>
+                          </div>
+                          <label className="switch">
+                            <input 
+                              type="checkbox" 
+                              checked={notifyOnDownload}
+                              onChange={(e) => setNotifyOnDownload(e.target.checked)}
+                            />
+                            <span className="slider"></span>
+                          </label>
+                        </div>
                       </div>
                     </div>
 
@@ -2220,113 +2923,294 @@ function App() {
                           }
 
                           return (
-                            <tr key={file.id || file._id}>
-                              <td>
-                                <div className="file-name-cell">
-                                  <div className="file-icon-square" style={{ backgroundColor: 'rgba(15, 23, 42, 0.05)', color: '#0f172a' }}>
-                                    <FileIcon />
+                            <React.Fragment key={file.id || file._id}>
+                              <tr>
+                                <td>
+                                  <div className="file-name-cell">
+                                    <div className="file-icon-square" style={{ backgroundColor: 'rgba(15, 23, 42, 0.05)', color: '#0f172a' }}>
+                                      <FileIcon />
+                                    </div>
+                                    <span style={{ fontWeight: '600', color: '#0f172a' }}>{file.name}</span>
                                   </div>
-                                  <span style={{ fontWeight: '600', color: '#0f172a' }}>{file.name}</span>
-                                </div>
-                              </td>
-                              <td style={{ color: '#71717a', fontSize: '13px' }}>
-                                {new Date(file.uploadDate).toLocaleDateString()}
-                              </td>
-                              <td style={{ color: '#71717a', fontSize: '13px' }}>
-                                {file.expiration === 'Never' ? 'Never' : file.expiration}
-                              </td>
-                              <td style={{ color: '#71717a', fontSize: '13px', fontWeight: '600' }}>
-                                {file.downloadCount || 0} / {file.downloadLimit || 0}
-                              </td>
-                              <td>
-                                <span style={statusStyle}>{statusLabel}</span>
-                              </td>
-                              <td>
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                  {/* Copy Link Button */}
-                                  <button
-                                    onClick={() => handleTableCopyLink(file.id || file._id)}
-                                    style={{
-                                      backgroundColor: 'transparent',
-                                      border: '1px solid #e4e4e7',
-                                      borderRadius: '6px',
-                                      padding: '6px 10px',
-                                      fontSize: '12px',
-                                      fontWeight: '700',
-                                      color: '#09090b',
-                                      cursor: 'pointer',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      transition: 'all 0.15s'
-                                    }}
-                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#f4f4f5'}
-                                    onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                                  >
-                                    <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2.5" fill="none">
-                                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                    </svg>
-                                    <span>{tableCopiedId === (file.id || file._id) ? 'Copied!' : 'Copy'}</span>
-                                  </button>
+                                </td>
+                                <td style={{ color: '#71717a', fontSize: '13px' }}>
+                                  {new Date(file.uploadDate).toLocaleDateString()}
+                                </td>
+                                <td style={{ color: '#71717a', fontSize: '13px' }}>
+                                  {file.expiration === 'Never' ? 'Never' : file.expiration}
+                                </td>
+                                <td style={{ color: '#71717a', fontSize: '13px', fontWeight: '600' }}>
+                                  {file.downloadCount || 0} / {file.downloadLimit || 0}
+                                </td>
+                                <td>
+                                  <span style={statusStyle}>{statusLabel}</span>
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    {/* Stats/Details Button */}
+                                    <button
+                                      onClick={() => setExpandedFileId(expandedFileId === (file.id || file._id) ? null : (file.id || file._id))}
+                                      style={{
+                                        backgroundColor: 'transparent',
+                                        border: '1px solid #cbd5e1',
+                                        borderRadius: '6px',
+                                        padding: '6px 10px',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        color: '#4f46e5',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        transition: 'all 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(99, 102, 241, 0.05)'}
+                                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                    >
+                                      <ChartIcon />
+                                      <span>Stats</span>
+                                    </button>
 
-                                  {/* Revoke Button */}
-                                  <button
-                                    onClick={() => handleRevokeFile(file.id || file._id)}
-                                    disabled={isRevoked || isExpired || isLimitHit}
-                                    style={{
-                                      backgroundColor: 'transparent',
-                                      border: '1px solid #fee2e2',
-                                      borderRadius: '6px',
-                                      padding: '6px 10px',
-                                      fontSize: '12px',
-                                      fontWeight: '700',
-                                      color: (isRevoked || isExpired || isLimitHit) ? '#d1d5db' : '#ef4444',
-                                      cursor: (isRevoked || isExpired || isLimitHit) ? 'not-allowed' : 'pointer',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      transition: 'all 0.15s'
-                                    }}
-                                    onMouseEnter={(e) => { if (!isRevoked && !isExpired && !isLimitHit) e.target.style.backgroundColor = '#fef2f2'; }}
-                                    onMouseLeave={(e) => { if (!isRevoked && !isExpired && !isLimitHit) e.target.style.backgroundColor = 'transparent'; }}
-                                  >
-                                    <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2.5" fill="none">
-                                      <circle cx="12" cy="12" r="10" />
-                                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-                                    </svg>
-                                    <span>Revoke</span>
-                                  </button>
+                                    {/* Copy Link Button */}
+                                    <button
+                                      onClick={() => handleTableCopyLink(file.id || file._id)}
+                                      style={{
+                                        backgroundColor: 'transparent',
+                                        border: '1px solid #e4e4e7',
+                                        borderRadius: '6px',
+                                        padding: '6px 10px',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        color: '#09090b',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        transition: 'all 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => e.target.style.backgroundColor = '#f4f4f5'}
+                                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                    >
+                                      <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2.5" fill="none">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                      </svg>
+                                      <span>{tableCopiedId === (file.id || file._id) ? 'Copied!' : 'Copy'}</span>
+                                    </button>
 
-                                  {/* Delete Button */}
-                                  <button
-                                    onClick={() => handleDeleteFile(file.id || file._id)}
-                                    style={{
-                                      backgroundColor: 'transparent',
-                                      border: '1px solid #fee2e2',
-                                      borderRadius: '6px',
-                                      padding: '6px 10px',
-                                      fontSize: '12px',
-                                      fontWeight: '700',
-                                      color: '#dc2626',
-                                      cursor: 'pointer',
+                                    {/* Revoke Button */}
+                                    <button
+                                      onClick={() => handleRevokeFile(file.id || file._id)}
+                                      disabled={isRevoked || isExpired || isLimitHit}
+                                      style={{
+                                        backgroundColor: 'transparent',
+                                        border: '1px solid #fee2e2',
+                                        borderRadius: '6px',
+                                        padding: '6px 10px',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        color: (isRevoked || isExpired || isLimitHit) ? '#d1d5db' : '#ef4444',
+                                        cursor: (isRevoked || isExpired || isLimitHit) ? 'not-allowed' : 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        transition: 'all 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => { if (!isRevoked && !isExpired && !isLimitHit) e.target.style.backgroundColor = '#fef2f2'; }}
+                                      onMouseLeave={(e) => { if (!isRevoked && !isExpired && !isLimitHit) e.target.style.backgroundColor = 'transparent'; }}
+                                    >
+                                      <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2.5" fill="none">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                                      </svg>
+                                      <span>Revoke</span>
+                                    </button>
+
+                                    {/* Delete Button */}
+                                    <button
+                                      onClick={() => handleDeleteFile(file.id || file._id)}
+                                      style={{
+                                        backgroundColor: 'transparent',
+                                        border: '1px solid #fee2e2',
+                                        borderRadius: '6px',
+                                        padding: '6px 10px',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        color: '#dc2626',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        transition: 'all 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => e.target.style.backgroundColor = '#fef2f2'}
+                                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                    >
+                                      <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2.5" fill="none">
+                                        <polyline points="3 6 5 6 21 6" />
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                      </svg>
+                                      <span>Delete</span>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {expandedFileId === (file.id || file._id) && (
+                                <tr style={{ backgroundColor: 'rgba(248, 250, 252, 0.5)' }}>
+                                  <td colSpan={6} style={{ padding: '20px 24px', borderTop: 'none' }}>
+                                    <div style={{
                                       display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      transition: 'all 0.15s'
-                                    }}
-                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#fef2f2'}
-                                    onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                                  >
-                                    <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2.5" fill="none">
-                                      <polyline points="3 6 5 6 21 6" />
-                                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                    </svg>
-                                    <span>Delete</span>
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
+                                      flexWrap: 'wrap',
+                                      gap: '24px',
+                                      width: '100%',
+                                      alignItems: 'start'
+                                    }}>
+                                      {/* Geolocation Log (Left Pane) */}
+                                      <div style={{ flex: '1 1 350px', minWidth: '300px' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '800', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                          <span style={{ fontSize: '18px' }}>📍</span> Download Geolocation History
+                                        </h4>
+                                        <div style={{
+                                          maxHeight: '200px',
+                                          overflowY: 'auto',
+                                          border: '1px solid #e2e8f0',
+                                          borderRadius: '8px',
+                                          backgroundColor: '#ffffff'
+                                        }}>
+                                          {file.downloads && file.downloads.length > 0 ? (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                              <thead>
+                                                <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                                                  <th style={{ padding: '8px 12px', fontWeight: '700', color: '#64748b' }}>Country</th>
+                                                  <th style={{ padding: '8px 12px', fontWeight: '700', color: '#64748b' }}>IP Address</th>
+                                                  <th style={{ padding: '8px 12px', fontWeight: '700', color: '#64748b' }}>Timestamp</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {file.downloads.map((dl, idx) => (
+                                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                    <td style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
+                                                      <span>{getFlagEmoji(dl.countryCode)}</span>
+                                                      <span>{dl.countryName || 'Unknown'}</span>
+                                                    </td>
+                                                    <td style={{ padding: '8px 12px', color: '#475569', fontFamily: 'monospace' }}>
+                                                      {dl.ip || '127.0.0.1'}
+                                                    </td>
+                                                    <td style={{ padding: '8px 12px', color: '#64748b' }}>
+                                                      {new Date(dl.timestamp).toLocaleString()}
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          ) : (
+                                            <div style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
+                                              No download logs available yet.
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Top Countries Chart (Right Pane) */}
+                                      <div style={{ flex: '1 1 350px', minWidth: '300px' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '800', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                          <span style={{ fontSize: '18px' }}>📊</span> Top Downloading Countries
+                                        </h4>
+                                        <div style={{
+                                          border: '1px solid #e2e8f0',
+                                          borderRadius: '8px',
+                                          padding: '16px',
+                                          backgroundColor: '#ffffff',
+                                          minHeight: '120px',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          justifyContent: 'center'
+                                        }}>
+                                          {file.downloads && file.downloads.length > 0 ? (
+                                            (() => {
+                                              const topCountries = getTopCountries(file.downloads);
+                                              const maxCount = Math.max(...topCountries.map(c => c.count));
+                                              return (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                  {topCountries.map((c, idx) => {
+                                                    const percent = Math.round((c.count / maxCount) * 100);
+                                                    return (
+                                                      <div key={idx} style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <span style={{ width: '28px', fontSize: '14px', textAlign: 'left' }}>{getFlagEmoji(c.code)}</span>
+                                                        <span style={{ width: '100px', fontSize: '12px', fontWeight: '600', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }} title={c.name}>
+                                                          {c.name}
+                                                        </span>
+                                                        <div style={{ flexGrow: 1, backgroundColor: '#f1f5f9', height: '8px', borderRadius: '4px', margin: '0 12px', overflow: 'hidden' }}>
+                                                          <div style={{ width: `${percent}%`, backgroundColor: '#6366f1', height: '100%', borderRadius: '4px' }}></div>
+                                                        </div>
+                                                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a', width: '24px', textAlign: 'right' }}>{c.count}</span>
+                                                      </div>
+                                                    );
+                                                  })}
+                                                </div>
+                                              );
+                                            })()
+                                          ) : (
+                                            <div style={{ textAlign: 'center', color: '#64748b' }}>
+                                              No geolocation data available.
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Dynamic Controls Override (Expanded settings) */}
+                                      <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '800', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                          <span style={{ fontSize: '18px' }}>⚙️</span> Delivery Settings
+                                        </h4>
+                                        <div style={{
+                                          border: '1px solid #e2e8f0',
+                                          borderRadius: '8px',
+                                          padding: '16px',
+                                          backgroundColor: '#ffffff'
+                                        }}>
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                              <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Email Alerts</span>
+                                              <label className="switch" style={{ scale: '0.85', transformOrigin: 'right center' }}>
+                                                <input 
+                                                  type="checkbox" 
+                                                  checked={file.notifyOnDownload || false}
+                                                  onChange={async (e) => {
+                                                    const updatedVal = e.target.checked;
+                                                    const token = localStorage.getItem('token');
+                                                    try {
+                                                      const fileId = file.id || file._id;
+                                                      await fetch(`${API_BASE_URL}/files/${fileId}`, {
+                                                        method: 'PUT',
+                                                        headers: {
+                                                          'Content-Type': 'application/json',
+                                                          'Authorization': `Bearer ${token}`
+                                                        },
+                                                        body: JSON.stringify({
+                                                          notifyOnDownload: updatedVal
+                                                        })
+                                                      });
+                                                      fetchUserFiles();
+                                                    } catch (err) {
+                                                      console.error('Failed to update email alert toggle:', err);
+                                                    }
+                                                  }}
+                                                />
+                                                <span className="slider"></span>
+                                              </label>
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', lineHeight: '1.4' }}>
+                                              Toggle email notifications when this file is downloaded.
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>

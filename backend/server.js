@@ -13,24 +13,31 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const envPath = path.join(__dirname, '.env');
 if (!process.env.FILE_ENCRYPTION_KEY) {
   const generatedKey = crypto.randomBytes(32).toString('hex');
-  // Read existing file to see if it has a newline at the end
-  let envContent = '';
-  if (fs.existsSync(envPath)) {
-    envContent = fs.readFileSync(envPath, 'utf8');
+  if (process.env.VERCEL) {
+    process.env.FILE_ENCRYPTION_KEY = generatedKey;
+    console.log('Secure file encryption key generated in memory (Vercel).');
+  } else {
+    const envPath = path.join(__dirname, '.env');
+    // Read existing file to see if it has a newline at the end
+    let envContent = '';
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, 'utf8');
+    }
+    const prefix = envContent.endsWith('\n') ? '' : '\n';
+    fs.appendFileSync(envPath, `${prefix}FILE_ENCRYPTION_KEY=${generatedKey}\n`);
+    process.env.FILE_ENCRYPTION_KEY = generatedKey;
+    console.log('Secure file encryption key generated and appended to .env file.');
   }
-  const prefix = envContent.endsWith('\n') ? '' : '\n';
-  fs.appendFileSync(envPath, `${prefix}FILE_ENCRYPTION_KEY=${generatedKey}\n`);
-  process.env.FILE_ENCRYPTION_KEY = generatedKey;
-  console.log('Secure file encryption key generated and appended to .env file.');
 }
 
 // Ensure secure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = process.env.VERCEL 
+  ? '/tmp' 
+  : path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
+  fs.mkdirSync(uploadsDir, { recursive: true });
   console.log('Created secure uploads directory.');
 }
 
@@ -55,6 +62,9 @@ app.use('/api/files', fileRoutes);
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to SecureShare API' });
 });
+app.get('/api', (req, res) => {
+  res.json({ message: 'Welcome to SecureShare API' });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -64,6 +74,10 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  });
+}
+
+module.exports = app;

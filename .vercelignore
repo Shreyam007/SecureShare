@@ -1,0 +1,16 @@
+# Exclude local package dependencies (Vercel installs them on build)
+node_modules
+frontend/node_modules
+backend/node_modules
+
+# Exclude build output
+frontend/dist
+dist
+
+# Exclude local storage and data uploads
+backend/uploads
+uploads
+
+# Exclude git
+.git
+.github

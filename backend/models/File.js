@@ -44,6 +44,21 @@ const FileSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    notifyOnDownload: {
+      type: Boolean,
+      default: false,
+    },
+    downloads: [
+      {
+        countryCode: String,
+        countryName: String,
+        ip: String,
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

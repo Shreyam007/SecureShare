@@ -9,10 +9,152 @@ const fs = require('fs');
 const path = require('path');
 
 // Ensure uploads directory exists on startup
-const uploadsDir = path.join(__dirname, '../uploads');
+const uploadsDir = process.env.VERCEL 
+  ? '/tmp' 
+  : path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+// Client IP resolution helper
+const getClientIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket.remoteAddress || req.ip || '127.0.0.1';
+};
+
+// Geolocation Mock list for local/private IPs
+const MOCK_COUNTRIES = [
+  { code: 'US', name: 'United States' },
+  { code: 'IN', name: 'India' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'FR', name: 'France' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'AU', name: 'Australia' }
+];
+
+// IP geolocation function
+const geolocateIp = async (ip) => {
+  if (
+    !ip ||
+    ip === '127.0.0.1' ||
+    ip === '::1' ||
+    ip.startsWith('127.0.') ||
+    ip.startsWith('192.168.') ||
+    ip.startsWith('10.') ||
+    ip.startsWith('172.16.') ||
+    ip.startsWith('::ffff:127.')
+  ) {
+    const choice = MOCK_COUNTRIES[Math.floor(Math.random() * MOCK_COUNTRIES.length)];
+    return { countryCode: choice.code, countryName: choice.name };
+  }
+
+  try {
+    const res = await fetch(`http://ip-api.com/json/${ip}`);
+    const data = await res.json();
+    if (data && data.status === 'success') {
+      return {
+        countryCode: data.countryCode || 'US',
+        countryName: data.country || 'United States'
+      };
+    }
+  } catch (err) {
+    console.error('GeoIP lookup error:', err.message);
+  }
+
+  return { countryCode: 'US', countryName: 'United States' };
+};
+
+// Nodemailer setups
+const nodemailer = require('nodemailer');
+let transporter = null;
+
+const initTransporter = async () => {
+  if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+    console.log('Nodemailer SMTP Transporter configured.');
+  } else {
+    try {
+      const testAccount = await nodemailer.createTestAccount();
+      transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass
+        }
+      });
+      console.log('Nodemailer Ethereal Email Transporter configured. Test user:', testAccount.user);
+    } catch (err) {
+      console.error('Failed to create Nodemailer test account:', err.message);
+    }
+  }
+};
+
+const sendDownloadAlert = async (uploaderEmail, fileName, timestamp, country) => {
+  if (!transporter) {
+    await initTransporter();
+  }
+  if (!transporter) return;
+
+  const mailOptions = {
+    from: '"SecureShare Alerts" <alerts@secureshare.com>',
+    to: uploaderEmail,
+    subject: `📥 File Downloaded: ${fileName}`,
+    html: `
+      <div style="font-family: sans-serif; padding: 25px; color: #1f2937; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+        <h2 style="color: #6366f1; margin-top: 0; font-size: 24px; font-weight: 800; border-bottom: 2px solid #f3f4f6; padding-bottom: 12px;">File Download Alert</h2>
+        <p style="font-size: 15px; line-height: 1.6;">Hello,</p>
+        <p style="font-size: 15px; line-height: 1.6;">We wanted to let you know that your encrypted file has been successfully downloaded by a recipient.</p>
+        
+        <div style="background-color: #f9fafb; border: 1px solid #f3f4f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr>
+              <td style="padding: 6px 0; color: #6b7280; width: 130px;"><strong>File Name:</strong></td>
+              <td style="padding: 6px 0; color: #111827;"><strong>${fileName}</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #6b7280;"><strong>Timestamp:</strong></td>
+              <td style="padding: 6px 0; color: #111827;">${new Date(timestamp).toUTCString()}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #6b7280;"><strong>Location:</strong></td>
+              <td style="padding: 6px 0; color: #111827;">${country}</td>
+            </tr>
+          </table>
+        </div>
+        
+        <p style="font-size: 14px; color: #4b5563; margin-bottom: 0;">Best regards,<br/><strong>SecureShare Team</strong></p>
+      </div>
+    `
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Alert email sent to ${uploaderEmail}. Message ID: ${info.messageId}`);
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    if (previewUrl) {
+      console.log(`--------------------------------------------------`);
+      console.log(`📧 Ethereal Email Preview URL: ${previewUrl}`);
+      console.log(`--------------------------------------------------`);
+    }
+  } catch (err) {
+    console.error('Failed to send email alert:', err.message);
+  }
+};
 
 // Configure multer to use in-memory storage (Zero-Disk Footprint)
 // In step 3, files will be encrypted client-side, but for this step we process multipart upload in memory and discard the buffer.
@@ -31,7 +173,7 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const { expiration, downloadLimit, passwordProtected, password } = req.body;
+    const { expiration, downloadLimit, passwordProtected, password, notifyOnDownload } = req.body;
 
     // Ensure encryption key is loaded
     if (!process.env.FILE_ENCRYPTION_KEY) {
@@ -56,7 +198,7 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
       const mockId = `mock-file-${Date.now()}`;
       
       // Save encrypted file to disk
-      const filePath = path.join(__dirname, '../uploads', `${mockId}.enc`);
+      const filePath = path.join(uploadsDir, `${mockId}.enc`);
       fs.writeFileSync(filePath, encryptedBuffer);
       
       const mockFile = {
@@ -70,6 +212,8 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
         password: password || '',
         iv: iv.toString('hex'),
         owner: req.user._id,
+        notifyOnDownload: notifyOnDownload === 'true' || notifyOnDownload === true,
+        downloads: [],
         createdAt: new Date()
       };
       
@@ -86,6 +230,7 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
           expiration: mockFile.expiration,
           downloadLimit: mockFile.downloadLimit,
           passwordProtected: mockFile.passwordProtected,
+          notifyOnDownload: mockFile.notifyOnDownload,
           downloadCount: 0,
           uploadDate: mockFile.createdAt
         }
@@ -94,7 +239,7 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
 
     // Generate MongoDB ObjectId first to use as filename
     const fileId = new mongoose.Types.ObjectId();
-    const filePath = path.join(__dirname, '../uploads', `${fileId.toString()}.enc`);
+    const filePath = path.join(uploadsDir, `${fileId.toString()}.enc`);
     
     // Save encrypted file to disk
     fs.writeFileSync(filePath, encryptedBuffer);
@@ -110,7 +255,9 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
       passwordProtected: passwordProtected === 'true' || passwordProtected === true,
       password: password || '',
       iv: iv.toString('hex'),
-      owner: req.user._id
+      owner: req.user._id,
+      notifyOnDownload: notifyOnDownload === 'true' || notifyOnDownload === true,
+      downloads: []
     });
 
     res.status(201).json({
@@ -124,6 +271,7 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
         expiration: file.expiration,
         downloadLimit: file.downloadLimit,
         passwordProtected: file.passwordProtected,
+        notifyOnDownload: file.notifyOnDownload,
         downloadCount: 0,
         uploadDate: file.createdAt
       }
@@ -156,6 +304,8 @@ router.get('/', protect, async (req, res) => {
           expiration: file.expiration,
           downloadLimit: file.downloadLimit,
           passwordProtected: file.passwordProtected,
+          notifyOnDownload: file.notifyOnDownload || false,
+          downloads: file.downloads || [],
           downloadCount: file.downloadCount || 0,
           uploadDate: file.createdAt
         }))
@@ -174,6 +324,8 @@ router.get('/', protect, async (req, res) => {
         expiration: file.expiration,
         downloadLimit: file.downloadLimit,
         passwordProtected: file.passwordProtected,
+        notifyOnDownload: file.notifyOnDownload || false,
+        downloads: file.downloads || [],
         downloadCount: file.downloadCount || 0,
         uploadDate: file.createdAt
       }))
@@ -369,7 +521,7 @@ router.get('/download/:id', async (req, res) => {
     const path = require('path');
     const crypto = require('crypto');
 
-    const filePath = path.join(__dirname, '../uploads', `${fileId}.enc`);
+    const filePath = path.join(uploadsDir, `${fileId}.enc`);
     
     // Check if the encrypted file exists on disk
     if (!fs.existsSync(filePath)) {
@@ -386,11 +538,59 @@ router.get('/download/:id', async (req, res) => {
     const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
     const decryptedBuffer = Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]);
 
-    // Increment download count
+    // Increment download count & track geolocation
+    const clientIp = getClientIp(req);
+    const { countryCode, countryName } = await geolocateIp(clientIp);
+
     if (mongoose.connection.readyState !== 1 || isMockFile) {
       fileMetadata.downloadCount = (fileMetadata.downloadCount || 0) + 1;
+      if (!fileMetadata.downloads) fileMetadata.downloads = [];
+      fileMetadata.downloads.push({
+        countryCode,
+        countryName,
+        ip: clientIp,
+        timestamp: new Date()
+      });
     } else {
-      await File.findByIdAndUpdate(fileId, { $inc: { downloadCount: 1 } });
+      await File.findByIdAndUpdate(fileId, { 
+        $inc: { downloadCount: 1 },
+        $push: { 
+          downloads: {
+            countryCode,
+            countryName,
+            ip: clientIp,
+            timestamp: new Date()
+          } 
+        } 
+      });
+    }
+
+    // Download email notification trigger
+    if (fileMetadata.notifyOnDownload) {
+      let uploaderEmail = '';
+      try {
+        const isMockOwner = String(fileMetadata.owner).startsWith('mock-');
+        if (mongoose.connection.readyState !== 1 || isMockOwner) {
+          const ownerUser = memoryStore.users.find(u => String(u._id) === String(fileMetadata.owner));
+          if (ownerUser) uploaderEmail = ownerUser.email;
+        } else {
+          const User = require('../models/User');
+          const ownerUser = await User.findById(fileMetadata.owner);
+          if (ownerUser) uploaderEmail = ownerUser.email;
+        }
+
+        if (uploaderEmail) {
+          // Asynchronous fire-and-forget alert email
+          sendDownloadAlert(
+            uploaderEmail, 
+            fileMetadata.name, 
+            new Date(), 
+            `${countryName} (${countryCode})`
+          ).catch(err => console.error('Alert email async error:', err.message));
+        }
+      } catch (err) {
+        console.error('Error initiating download email alert:', err.message);
+      }
     }
 
     // Send the decrypted stream as file download
@@ -431,7 +631,7 @@ router.delete('/:id', protect, async (req, res) => {
 
     const fs = require('fs');
     const path = require('path');
-    const filePath = path.join(__dirname, '../uploads', `${fileId}.enc`);
+    const filePath = path.join(uploadsDir, `${fileId}.enc`);
 
     if (fs.existsSync(filePath)) {
       try {
@@ -471,7 +671,7 @@ router.delete('/', protect, async (req, res) => {
       // In-memory fallback
       const filesToDelete = memoryStore.files.filter(f => String(f.owner) === String(req.user._id));
       for (const file of filesToDelete) {
-        const filePath = path.join(__dirname, '../uploads', `${file._id}.enc`);
+        const filePath = path.join(uploadsDir, `${file._id}.enc`);
         if (fs.existsSync(filePath)) {
           try {
             fs.unlinkSync(filePath);
@@ -487,7 +687,7 @@ router.delete('/', protect, async (req, res) => {
     // Database mode
     const files = await File.find({ owner: req.user._id });
     for (const file of files) {
-      const filePath = path.join(__dirname, '../uploads', `${file._id.toString()}.enc`);
+      const filePath = path.join(uploadsDir, `${file._id.toString()}.enc`);
       if (fs.existsSync(filePath)) {
         try {
           fs.unlinkSync(filePath);
@@ -511,7 +711,7 @@ router.delete('/', protect, async (req, res) => {
 router.put('/:id', protect, async (req, res) => {
   try {
     const fileId = req.params.id;
-    const { expiration, downloadLimit, passwordProtected, password } = req.body;
+    const { expiration, downloadLimit, passwordProtected, password, notifyOnDownload } = req.body;
 
     let fileMetadata = null;
 
@@ -540,12 +740,14 @@ router.put('/:id', protect, async (req, res) => {
       fileMetadata.downloadLimit = updatedLimit;
       fileMetadata.passwordProtected = isPasswordProtected;
       fileMetadata.password = password !== undefined ? password : fileMetadata.password;
+      fileMetadata.notifyOnDownload = notifyOnDownload !== undefined ? (notifyOnDownload === 'true' || notifyOnDownload === true) : fileMetadata.notifyOnDownload;
     } else {
       await File.findByIdAndUpdate(fileId, {
         expiration: expiration || fileMetadata.expiration,
         downloadLimit: updatedLimit,
         passwordProtected: isPasswordProtected,
-        password: password !== undefined ? password : fileMetadata.password
+        password: password !== undefined ? password : fileMetadata.password,
+        notifyOnDownload: notifyOnDownload !== undefined ? (notifyOnDownload === 'true' || notifyOnDownload === true) : fileMetadata.notifyOnDownload
       });
     }
 
@@ -556,7 +758,8 @@ router.put('/:id', protect, async (req, res) => {
         id: fileId,
         expiration: expiration || fileMetadata.expiration,
         downloadLimit: updatedLimit,
-        passwordProtected: isPasswordProtected
+        passwordProtected: isPasswordProtected,
+        notifyOnDownload: notifyOnDownload !== undefined ? (notifyOnDownload === 'true' || notifyOnDownload === true) : fileMetadata.notifyOnDownload
       }
     });
 
