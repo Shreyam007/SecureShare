@@ -4,8 +4,10 @@
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
   "cleanUrls": true,
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
