@@ -147,6 +147,7 @@ const initTransporter = async () => {
 };
 
 const sendDownloadAlert = async (uploaderEmail, fileName, timestamp, country) => {
+  const senderEmail = process.env.SENDER_EMAIL || process.env.SMTP_USER || 'alerts@secureshare.com';
   const htmlContent = `
     <div style="font-family: sans-serif; padding: 25px; color: #1f2937; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
       <h2 style="color: #6366f1; margin-top: 0; font-size: 24px; font-weight: 800; border-bottom: 2px solid #f3f4f6; padding-bottom: 12px;">File Download Alert</h2>
@@ -188,7 +189,7 @@ const sendDownloadAlert = async (uploaderEmail, fileName, timestamp, country) =>
         body: JSON.stringify({
           sender: {
             name: "SecureShare Alerts",
-            email: process.env.SMTP_USER || 'alerts@secureshare.com'
+            email: senderEmail
           },
           to: [
             {
@@ -219,7 +220,7 @@ const sendDownloadAlert = async (uploaderEmail, fileName, timestamp, country) =>
   if (!transporter) return;
 
   const mailOptions = {
-    from: `"SecureShare Alerts" <${process.env.SMTP_USER || 'alerts@secureshare.com'}>`,
+    from: `"SecureShare Alerts" <${senderEmail}>`,
     to: uploaderEmail,
     subject: `📥 File Downloaded: ${fileName}`,
     html: htmlContent
@@ -934,6 +935,7 @@ router.get('/test-smtp-live', async (req, res) => {
     const testRecipient = 'p.suhanibbk@gmail.com';
     const subject = 'SecureShare Live Diagnostic Test';
     const text = `This is a test email sent from the live Render backend at ${new Date().toISOString()} to check connectivity.`;
+    const senderEmail = process.env.SENDER_EMAIL || process.env.SMTP_USER || 'alerts@secureshare.com';
 
     if (process.env.SMTP_HOST === 'smtp-relay.brevo.com' && process.env.SMTP_PASS) {
       console.log('[Diagnostic] Testing Brevo REST API...');
@@ -947,7 +949,7 @@ router.get('/test-smtp-live', async (req, res) => {
         body: JSON.stringify({
           sender: {
             name: "SecureShare Alerts",
-            email: process.env.SMTP_USER || 'alerts@secureshare.com'
+            email: senderEmail
           },
           to: [
             {
@@ -994,7 +996,7 @@ router.get('/test-smtp-live', async (req, res) => {
     }
     
     const info = await transporter.sendMail({
-      from: `"SecureShare Alerts" <${process.env.SMTP_USER}>`,
+      from: `"SecureShare Alerts" <${senderEmail}>`,
       to: testRecipient,
       subject: subject,
       text: text
