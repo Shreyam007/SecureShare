@@ -18,24 +18,17 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Client IP resolution helper
 const getClientIp = (req) => {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
+  let ip = req.headers['x-forwarded-for'];
+  if (ip) {
+    ip = ip.split(',')[0].trim();
+  } else {
+    ip = req.socket.remoteAddress || req.ip || '127.0.0.1';
   }
-  return req.socket.remoteAddress || req.ip || '127.0.0.1';
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.substring(7);
+  }
+  return ip;
 };
-
-// Geolocation Mock list for local/private IPs
-const MOCK_COUNTRIES = [
-  { code: 'US', name: 'United States' },
-  { code: 'IN', name: 'India' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'FR', name: 'France' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'AU', name: 'Australia' }
-];
 
 // IP geolocation function
 const geolocateIp = async (ip) => {
@@ -49,24 +42,27 @@ const geolocateIp = async (ip) => {
     ip.startsWith('172.16.') ||
     ip.startsWith('::ffff:127.')
   ) {
-    const choice = MOCK_COUNTRIES[Math.floor(Math.random() * MOCK_COUNTRIES.length)];
-    return { countryCode: choice.code, countryName: choice.name };
+    return { countryCode: 'Unknown', countryName: 'Unknown' };
   }
 
   try {
-    const res = await fetch(`http://ip-api.com/json/${ip}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2-second timeout
+    const res = await fetch(`http://ip-api.com/json/${ip}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     const data = await res.json();
     if (data && data.status === 'success') {
       return {
-        countryCode: data.countryCode || 'US',
-        countryName: data.country || 'United States'
+        countryCode: data.countryCode || 'Unknown',
+        countryName: data.country || 'Unknown'
       };
     }
   } catch (err) {
     console.error('GeoIP lookup error:', err.message);
   }
 
-  return { countryCode: 'US', countryName: 'United States' };
+  return { countryCode: 'Unknown', countryName: 'Unknown' };
 };
 
 // Nodemailer setups
@@ -111,7 +107,7 @@ const sendDownloadAlert = async (uploaderEmail, fileName, timestamp, country) =>
   if (!transporter) return;
 
   const mailOptions = {
-    from: '"SecureShare Alerts" <alerts@secureshare.com>',
+    from: `"SecureShare Alerts" <${process.env.SMTP_USER || 'alerts@secureshare.com'}>`,
     to: uploaderEmail,
     subject: `📥 File Downloaded: ${fileName}`,
     html: `

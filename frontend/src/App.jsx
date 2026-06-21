@@ -221,16 +221,35 @@ function App() {
     const path = window.location.pathname;
     const match = path.match(/^\/download\/([^/]+)$/);
     
-    if (token) {
-      fetchUserProfile(token);
-    }
-
     if (match) {
       const fileId = match[1];
       setDownloadFileId(fileId);
       setView('download_portal');
       setRedirectPath(`/download/${fileId}`);
       fetchDownloadMetadata(fileId, token);
+    } else if (path === '/dashboard') {
+      if (token) {
+        setView('dashboard');
+        setDashboardTab('dashboard');
+        fetchUserProfile(token);
+      } else {
+        setRedirectPath('/dashboard');
+        window.history.pushState({}, '', '/login');
+        setView('login');
+      }
+    } else if (path === '/login') {
+      if (token) {
+        window.history.pushState({}, '', '/dashboard');
+        setView('dashboard');
+        setDashboardTab('dashboard');
+        fetchUserProfile(token);
+      } else {
+        setView('login');
+      }
+    } else {
+      if (token) {
+        fetchUserProfile(token);
+      }
     }
   }, []);
 
@@ -294,10 +313,47 @@ function App() {
         setView((prev) => (prev === 'download_portal' || prev === 'share' ? prev : 'dashboard'));
       } else {
         localStorage.removeItem('token');
+        setUser(null);
+        if (window.location.pathname === '/dashboard') {
+          window.history.pushState({}, '', '/login');
+          setView('login');
+        }
       }
     } catch (err) {
       console.error('Error fetching user profile:', err);
     }
+  };
+
+  const handleGoToDashboard = () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      window.history.pushState({}, '', '/dashboard');
+      setView('dashboard');
+      setDashboardTab('dashboard');
+      if (!user) {
+        fetchUserProfile(token);
+      }
+    } else {
+      setRedirectPath('/dashboard');
+      window.history.pushState({}, '', '/login');
+      setView('login');
+    }
+  };
+
+  const handleLoginSuccess = (token, userObj) => {
+    setUser(userObj);
+    const path = redirectPath || '/dashboard';
+    window.history.pushState({}, '', path);
+    if (path === '/dashboard') {
+      setView('dashboard');
+      setDashboardTab('dashboard');
+    } else {
+      setView('download_portal');
+      const fileId = path.split('/').pop();
+      setDownloadFileId(fileId);
+      fetchDownloadMetadata(fileId, token);
+    }
+    setRedirectPath('');
   };
 
   const fetchDownloadMetadata = async (fileId, userToken) => {
@@ -379,17 +435,7 @@ function App() {
         setApiSuccess(view === 'login' ? 'Logged in successfully!' : 'Account registered successfully!');
         
         setTimeout(() => {
-          if (redirectPath) {
-            window.history.pushState({}, '', redirectPath);
-            setView('download_portal');
-            const fileId = redirectPath.split('/').pop();
-            setDownloadFileId(fileId);
-            fetchDownloadMetadata(fileId, data.token);
-            setRedirectPath('');
-          } else {
-            setView('landing');
-            setDashboardTab('upload');
-          }
+          handleLoginSuccess(data.token, data.user);
           setFormData({ name: '', email: '', password: '' });
           setApiSuccess('');
         }, 1000);
@@ -710,17 +756,7 @@ function App() {
     };
     setUser(mockUser);
     localStorage.setItem('token', 'mock-token-google');
-    if (redirectPath) {
-      window.history.pushState({}, '', redirectPath);
-      setView('download_portal');
-      const fileId = redirectPath.split('/').pop();
-      setDownloadFileId(fileId);
-      fetchDownloadMetadata(fileId, 'mock-token-google');
-      setRedirectPath('');
-    } else {
-      setView('landing');
-      setDashboardTab('upload');
-    }
+    handleLoginSuccess('mock-token-google', mockUser);
   };
 
   const handleGoogleLogin = () => {
@@ -752,17 +788,7 @@ function App() {
         setApiSuccess('Logged in successfully via Google!');
         
         setTimeout(() => {
-          if (redirectPath) {
-            window.history.pushState({}, '', redirectPath);
-            setView('download_portal');
-            const fileId = redirectPath.split('/').pop();
-            setDownloadFileId(fileId);
-            fetchDownloadMetadata(fileId, data.token);
-            setRedirectPath('');
-          } else {
-            setView('landing');
-            setDashboardTab('upload');
-          }
+          handleLoginSuccess(data.token, data.user);
           setApiSuccess('');
         }, 1000);
       } else {
@@ -786,17 +812,7 @@ function App() {
     };
     setUser(mockUser);
     localStorage.setItem('token', 'mock-token-saml');
-    if (redirectPath) {
-      window.history.pushState({}, '', redirectPath);
-      setView('download_portal');
-      const fileId = redirectPath.split('/').pop();
-      setDownloadFileId(fileId);
-      fetchDownloadMetadata(fileId, 'mock-token-saml');
-      setRedirectPath('');
-    } else {
-      setView('landing');
-      setDashboardTab('upload');
-    }
+    handleLoginSuccess('mock-token-saml', mockUser);
   };
 
   const isFileExpiredClient = (file) => {
@@ -1186,7 +1202,7 @@ function App() {
             <div className="container">
               <a href="/" className="logo-text" onClick={(e) => { e.preventDefault(); setView('landing'); }}>SecureShare</a>
               <nav className="nav-links">
-                <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); if (user) { setView('landing'); setDashboardTab('dashboard'); } else { setView('login'); } }}>Dashboard</a>
+                <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); handleGoToDashboard(); }}>Dashboard</a>
                 <a href="#about" className="nav-link">About</a>
                 <a href="#support" className="nav-link">Support</a>
               </nav>
@@ -1424,13 +1440,13 @@ function App() {
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                 </svg>
                 <span>Edit Security Settings</span>
               </button>
               <span style={{ color: '#d1d5db' }}>•</span>
               <button 
-                onClick={() => { setView('landing'); setDashboardTab('dashboard'); }}
+                onClick={handleGoToDashboard}
                 style={{
                   backgroundColor: '#ffffff',
                   border: '1px solid #e4e4e7',
@@ -1444,7 +1460,7 @@ function App() {
                 }}
               >
                 <span>Go to Dashboard</span>
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none">
                   <line x1="5" y1="12" x2="19" y2="12" />
                   <polyline points="12 5 19 12 12 19" />
                 </svg>
@@ -1879,7 +1895,7 @@ function App() {
                 <span>Upload More Files</span>
               </button>
               <button 
-                onClick={() => { setView('landing'); setDashboardTab('dashboard'); }}
+                onClick={handleGoToDashboard}
                 style={{
                   backgroundColor: '#000000',
                   color: '#ffffff',
@@ -1971,7 +1987,7 @@ function App() {
             <div className="container">
               <a href="/" className="logo-text" onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/'); setView('landing'); }}>SecureShare</a>
               <nav className="nav-links">
-                <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); if (user) { window.history.pushState({}, '', '/'); setView('landing'); setDashboardTab('dashboard'); } else { setView('login'); } }}>Dashboard</a>
+                <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); handleGoToDashboard(); }}>Dashboard</a>
                 <a href="#about" className="nav-link">About</a>
                 <a href="#support" className="nav-link">Support</a>
               </nav>
@@ -3269,7 +3285,7 @@ function App() {
             <a href="/" className="logo-text" onClick={(e) => { e.preventDefault(); setView('landing'); }}>SecureShare</a>
             
             <nav className="nav-links">
-              <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); if (user) { setView('dashboard'); } else { setView('login'); } }}>Dashboard</a>
+              <a href="#dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); handleGoToDashboard(); }}>Dashboard</a>
               <a href="#about" className="nav-link">About</a>
               <a href="#support" className="nav-link">Support</a>
             </nav>
@@ -3306,8 +3322,8 @@ function App() {
             </p>
 
             <div className="hero-actions">
-              <button onClick={() => { if (user) { setView('dashboard'); } else { setView('signup'); } }} className="btn-primary" style={{ backgroundColor: '#0f172a', padding: '14px 32px', fontSize: '15px' }}>
-                {user ? 'Go to Dashboard' : 'Get Started for Free'}
+              <button onClick={handleGoToDashboard} className="btn-primary" style={{ backgroundColor: '#0f172a', padding: '14px 32px', fontSize: '15px' }}>
+                Go to Dashboard
               </button>
               <button className="btn-secondary" style={{ padding: '14px 32px', fontSize: '15px' }} onClick={() => {
                 document.getElementById('features-section').scrollIntoView({ behavior: 'smooth' });
@@ -3683,8 +3699,8 @@ function App() {
             <p className="cta-desc">
               Join 50,000+ professionals sharing files with total confidence. No credit card required to start.
             </p>
-            <button onClick={() => { if (user) { setView('dashboard'); } else { setView('signup'); } }} className="btn-white" style={{ fontWeight: '800' }}>
-              {user ? 'Go to Dashboard' : 'Create Secure Account'}
+            <button onClick={handleGoToDashboard} className="btn-white" style={{ fontWeight: '800' }}>
+              Go to Dashboard
             </button>
           </div>
         </section>
