@@ -147,6 +147,72 @@ const initTransporter = async () => {
 };
 
 const sendDownloadAlert = async (uploaderEmail, fileName, timestamp, country) => {
+  const htmlContent = `
+    <div style="font-family: sans-serif; padding: 25px; color: #1f2937; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+      <h2 style="color: #6366f1; margin-top: 0; font-size: 24px; font-weight: 800; border-bottom: 2px solid #f3f4f6; padding-bottom: 12px;">File Download Alert</h2>
+      <p style="font-size: 15px; line-height: 1.6;">Hello,</p>
+      <p style="font-size: 15px; line-height: 1.6;">We wanted to let you know that your encrypted file has been successfully downloaded by a recipient.</p>
+      
+      <div style="background-color: #f9fafb; border: 1px solid #f3f4f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr>
+            <td style="padding: 6px 0; color: #6b7280; width: 130px;"><strong>File Name:</strong></td>
+            <td style="padding: 6px 0; color: #111827;"><strong>${fileName}</strong></td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #6b7280;"><strong>Timestamp:</strong></td>
+            <td style="padding: 6px 0; color: #111827;">${new Date(timestamp).toUTCString()}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #6b7280;"><strong>Location:</strong></td>
+            <td style="padding: 6px 0; color: #111827;">${country}</td>
+          </tr>
+        </table>
+      </div>
+      
+      <p style="font-size: 14px; color: #4b5563; margin-bottom: 0;">Best regards,<br/><strong>SecureShare Team</strong></p>
+    </div>
+  `;
+
+  // Use Brevo REST API if configured for Brevo, to bypass Render SMTP port blocks
+  if (process.env.SMTP_HOST === 'smtp-relay.brevo.com' && process.env.SMTP_PASS) {
+    try {
+      console.log('Sending email alert via Brevo REST API...');
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': process.env.SMTP_PASS,
+          'Content-Type': 'application/json',
+          'accept': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: {
+            name: "SecureShare Alerts",
+            email: process.env.SMTP_USER || 'alerts@secureshare.com'
+          },
+          to: [
+            {
+              email: uploaderEmail
+            }
+          ],
+          subject: `📥 File Downloaded: ${fileName}`,
+          htmlContent: htmlContent
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        console.log(`Alert email sent to ${uploaderEmail} via Brevo API. Message ID: ${result.messageId}`);
+        return;
+      } else {
+        console.error('Brevo API send email failed:', result);
+      }
+    } catch (apiErr) {
+      console.error('Brevo API send email fetch error:', apiErr.message);
+    }
+  }
+
+  // Fallback to standard SMTP / Nodemailer
   if (!transporter) {
     await initTransporter();
   }
@@ -156,37 +222,12 @@ const sendDownloadAlert = async (uploaderEmail, fileName, timestamp, country) =>
     from: `"SecureShare Alerts" <${process.env.SMTP_USER || 'alerts@secureshare.com'}>`,
     to: uploaderEmail,
     subject: `📥 File Downloaded: ${fileName}`,
-    html: `
-      <div style="font-family: sans-serif; padding: 25px; color: #1f2937; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-        <h2 style="color: #6366f1; margin-top: 0; font-size: 24px; font-weight: 800; border-bottom: 2px solid #f3f4f6; padding-bottom: 12px;">File Download Alert</h2>
-        <p style="font-size: 15px; line-height: 1.6;">Hello,</p>
-        <p style="font-size: 15px; line-height: 1.6;">We wanted to let you know that your encrypted file has been successfully downloaded by a recipient.</p>
-        
-        <div style="background-color: #f9fafb; border: 1px solid #f3f4f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <tr>
-              <td style="padding: 6px 0; color: #6b7280; width: 130px;"><strong>File Name:</strong></td>
-              <td style="padding: 6px 0; color: #111827;"><strong>${fileName}</strong></td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #6b7280;"><strong>Timestamp:</strong></td>
-              <td style="padding: 6px 0; color: #111827;">${new Date(timestamp).toUTCString()}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #6b7280;"><strong>Location:</strong></td>
-              <td style="padding: 6px 0; color: #111827;">${country}</td>
-            </tr>
-          </table>
-        </div>
-        
-        <p style="font-size: 14px; color: #4b5563; margin-bottom: 0;">Best regards,<br/><strong>SecureShare Team</strong></p>
-      </div>
-    `
+    html: htmlContent
   };
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log(`Alert email sent to ${uploaderEmail}. Message ID: ${info.messageId}`);
+    console.log(`Alert email sent to ${uploaderEmail} via SMTP. Message ID: ${info.messageId}`);
     const previewUrl = nodemailer.getTestMessageUrl(info);
     if (previewUrl) {
       console.log(`--------------------------------------------------`);
@@ -194,7 +235,7 @@ const sendDownloadAlert = async (uploaderEmail, fileName, timestamp, country) =>
       console.log(`--------------------------------------------------`);
     }
   } catch (err) {
-    console.error('Failed to send email alert:', err.message);
+    console.error('Failed to send email alert via SMTP:', err.message);
   }
 };
 
@@ -889,26 +930,79 @@ router.get('/sse', protect, async (req, res) => {
 // GET /api/files/test-smtp-live
 router.get('/test-smtp-live', async (req, res) => {
   try {
-    console.log('[Diagnostic] Running SMTP test on Live Render Server...');
+    console.log('[Diagnostic] Running SMTP/API test on Live Render Server...');
+    const testRecipient = 'p.suhanibbk@gmail.com';
+    const subject = 'SecureShare Live Diagnostic Test';
+    const text = `This is a test email sent from the live Render backend at ${new Date().toISOString()} to check connectivity.`;
+
+    if (process.env.SMTP_HOST === 'smtp-relay.brevo.com' && process.env.SMTP_PASS) {
+      console.log('[Diagnostic] Testing Brevo REST API...');
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': process.env.SMTP_PASS,
+          'Content-Type': 'application/json',
+          'accept': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: {
+            name: "SecureShare Alerts",
+            email: process.env.SMTP_USER || 'alerts@secureshare.com'
+          },
+          to: [
+            {
+              email: testRecipient
+            }
+          ],
+          subject: subject,
+          htmlContent: `<html><body><p>${text}</p></body></html>`
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        return res.json({
+          success: true,
+          method: 'Brevo REST API',
+          message: 'Test mail sent successfully via Brevo REST API!',
+          messageId: result.messageId,
+          user: process.env.SMTP_USER,
+          host: process.env.SMTP_HOST
+        });
+      } else {
+        return res.status(response.status).json({
+          success: false,
+          method: 'Brevo REST API',
+          message: 'Brevo API returned error.',
+          error: result,
+          user: process.env.SMTP_USER,
+          host: process.env.SMTP_HOST
+        });
+      }
+    }
+
+    // Default to SMTP
     if (!transporter) {
       await initTransporter();
     }
     if (!transporter) {
       return res.status(500).json({ 
         success: false, 
-        message: 'SMTP Transporter not initialized. Check if SMTP_HOST and SMTP_USER are defined in your Render dashboard.' 
+        method: 'SMTP',
+        message: 'SMTP Transporter not initialized. Check if SMTP_HOST and SMTP_USER are defined.' 
       });
     }
     
     const info = await transporter.sendMail({
       from: `"SecureShare Alerts" <${process.env.SMTP_USER}>`,
-      to: 'p.suhanibbk@gmail.com',
-      subject: 'SecureShare Live Diagnostic Test',
-      text: `This is a test email sent from the live Render backend at ${new Date().toISOString()} to check SMTP connectivity.`
+      to: testRecipient,
+      subject: subject,
+      text: text
     });
     
     return res.json({
       success: true,
+      method: 'SMTP Relay',
       message: 'SMTP test mail sent successfully!',
       messageId: info.messageId,
       user: process.env.SMTP_USER,
