@@ -886,4 +886,44 @@ router.get('/sse', protect, async (req, res) => {
   });
 });
 
+// GET /api/files/test-smtp-live
+router.get('/test-smtp-live', async (req, res) => {
+  try {
+    console.log('[Diagnostic] Running SMTP test on Live Render Server...');
+    if (!transporter) {
+      await initTransporter();
+    }
+    if (!transporter) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'SMTP Transporter not initialized. Check if SMTP_HOST and SMTP_USER are defined in your Render dashboard.' 
+      });
+    }
+    
+    const info = await transporter.sendMail({
+      from: `"SecureShare Alerts" <${process.env.SMTP_USER}>`,
+      to: 'p.suhanibbk@gmail.com',
+      subject: 'SecureShare Live Diagnostic Test',
+      text: `This is a test email sent from the live Render backend at ${new Date().toISOString()} to check SMTP connectivity.`
+    });
+    
+    return res.json({
+      success: true,
+      message: 'SMTP test mail sent successfully!',
+      messageId: info.messageId,
+      user: process.env.SMTP_USER,
+      host: process.env.SMTP_HOST
+    });
+  } catch (err) {
+    console.error('[Diagnostic] Live SMTP test failed:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'SMTP test failed on live Render server.',
+      error: err.message,
+      user: process.env.SMTP_USER,
+      host: process.env.SMTP_HOST
+    });
+  }
+});
+
 module.exports = router;
