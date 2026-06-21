@@ -1,3 +1,18 @@
+// Setup global log interceptor for diagnostics
+global.debugLogs = [];
+const originalLog = console.log;
+const originalError = console.error;
+console.log = (...args) => {
+  global.debugLogs.push(`[LOG] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+  if (global.debugLogs.length > 200) global.debugLogs.shift();
+  originalLog(...args);
+};
+console.error = (...args) => {
+  global.debugLogs.push(`[ERROR] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+  if (global.debugLogs.length > 200) global.debugLogs.shift();
+  originalError(...args);
+};
+
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');

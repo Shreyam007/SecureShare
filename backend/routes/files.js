@@ -1020,4 +1020,20 @@ router.get('/test-smtp-live', async (req, res) => {
   }
 });
 
+// GET /api/files/debug-logs
+router.get('/debug-logs', (req, res) => {
+  const memoryStore = require('../config/memoryStore');
+  res.json({
+    dbState: mongoose.connection.readyState,
+    envKeys: Object.keys(process.env).filter(k => !k.includes('PASS') && !k.includes('SECRET') && !k.includes('KEY')),
+    googleClientIdSet: !!process.env.GOOGLE_CLIENT_ID,
+    smtpUserSet: !!process.env.SMTP_USER,
+    smtpHostSet: !!process.env.SMTP_HOST,
+    smtpPassSet: !!process.env.SMTP_PASS,
+    memoryStoreUsers: (memoryStore.users || []).map(u => ({ id: u._id, email: u.email })),
+    memoryStoreFiles: (memoryStore.files || []).map(f => ({ id: f._id, name: f.name, owner: f.owner, notify: f.notifyOnDownload })),
+    logs: global.debugLogs || []
+  });
+});
+
 module.exports = router;
