@@ -135,6 +135,7 @@ const getApiBaseUrl = () => {
 };
 
 const API_BASE_URL = getApiBaseUrl();
+console.log('App initialized. API_BASE_URL:', API_BASE_URL);
 
 function App() {
   // Navigation states
