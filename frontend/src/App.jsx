@@ -775,7 +775,7 @@ function App() {
   };
 
   const handleGoogleLogin = () => {
-    const clientId = '135623497828-ffmbq9r8g32hhbi9jo44q97ganv29n5a.apps.googleusercontent.com';
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '135623497828-ffmbq9r8g32hhbi9jo44q97ganv29n5a.apps.googleusercontent.com';
     const redirectUri = `${window.location.origin}/login`;
     const scope = 'openid email profile';
     const nonce = Math.random().toString(36).substring(2) + Date.now().toString(36);
