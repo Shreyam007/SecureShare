@@ -16,6 +16,52 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Active SSE clients: array of objects containing user id and res object
+let sseClients = [];
+
+// Helper to broadcast real-time files state updates to all active SSE clients of a user
+const notifyUserFilesUpdate = async (userId) => {
+  const userClients = sseClients.filter(c => String(c.userId) === String(userId));
+  if (userClients.length === 0) return;
+
+  let userFiles = [];
+  try {
+    const isMockUser = String(userId).startsWith('mock-');
+    if (mongoose.connection.readyState !== 1 || isMockUser) {
+      userFiles = memoryStore.files
+        .filter(f => String(f.owner) === String(userId))
+        .sort((a, b) => b.createdAt - a.createdAt);
+    } else {
+      userFiles = await File.find({ owner: userId }).sort({ createdAt: -1 });
+    }
+
+    const filesData = userFiles.map(file => ({
+      id: file._id,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      expiration: file.expiration,
+      downloadLimit: file.downloadLimit,
+      passwordProtected: file.passwordProtected,
+      notifyOnDownload: file.notifyOnDownload || false,
+      downloads: file.downloads || [],
+      downloadCount: file.downloadCount || 0,
+      uploadDate: file.createdAt
+    }));
+
+    const payload = JSON.stringify({ type: 'FILES_UPDATE', files: filesData });
+    for (const client of userClients) {
+      try {
+        client.res.write(`data: ${payload}\n\n`);
+      } catch (err) {
+        console.error('Error writing to client SSE connection:', err.message);
+      }
+    }
+  } catch (err) {
+    console.error('Error broadcasting SSE update:', err.message);
+  }
+};
+
 // Client IP resolution helper
 const getClientIp = (req) => {
   let ip = req.headers['x-forwarded-for'];
@@ -215,6 +261,8 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
       
       memoryStore.files.push(mockFile);
       
+      notifyUserFilesUpdate(req.user._id);
+      
       return res.status(201).json({
         success: true,
         message: 'File encrypted using AES-256 and saved to fallback store.',
@@ -255,6 +303,8 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
       notifyOnDownload: notifyOnDownload === 'true' || notifyOnDownload === true,
       downloads: []
     });
+
+    notifyUserFilesUpdate(req.user._id);
 
     res.status(201).json({
       success: true,
@@ -561,6 +611,8 @@ router.get('/download/:id', async (req, res) => {
       });
     }
 
+    notifyUserFilesUpdate(fileMetadata.owner);
+
     // Download email notification trigger
     if (fileMetadata.notifyOnDownload) {
       let uploaderEmail = '';
@@ -646,6 +698,8 @@ router.delete('/:id', protect, async (req, res) => {
       await File.findByIdAndDelete(fileId);
     }
 
+    notifyUserFilesUpdate(req.user._id);
+
     res.status(200).json({ success: true, message: 'File deleted successfully' });
 
   } catch (error) {
@@ -677,6 +731,7 @@ router.delete('/', protect, async (req, res) => {
         }
       }
       memoryStore.files = memoryStore.files.filter(f => String(f.owner) !== String(req.user._id));
+      notifyUserFilesUpdate(req.user._id);
       return res.status(200).json({ success: true, message: 'All fallback files cleared successfully' });
     }
 
@@ -694,6 +749,7 @@ router.delete('/', protect, async (req, res) => {
     }
 
     await File.deleteMany({ owner: req.user._id });
+    notifyUserFilesUpdate(req.user._id);
     res.status(200).json({ success: true, message: 'All encrypted files cleared successfully' });
   } catch (error) {
     console.error('Clear files error:', error);
@@ -747,6 +803,8 @@ router.put('/:id', protect, async (req, res) => {
       });
     }
 
+    notifyUserFilesUpdate(req.user._id);
+
     res.status(200).json({
       success: true,
       message: 'File settings updated successfully',
@@ -763,6 +821,69 @@ router.put('/:id', protect, async (req, res) => {
     console.error('Update file settings error:', error);
     res.status(500).json({ success: false, message: 'Server error updating file settings' });
   }
+});
+
+// @route   GET /api/files/sse
+// @desc    Server-Sent Events endpoint for real-time dashboard updates
+// @access  Private
+router.get('/sse', protect, async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const clientId = Date.now();
+  const newClient = {
+    id: clientId,
+    userId: String(req.user._id),
+    res
+  };
+  sseClients.push(newClient);
+
+  // Immediately send initial user files
+  let userFiles = [];
+  try {
+    const isMockUser = String(req.user._id).startsWith('mock-');
+    if (mongoose.connection.readyState !== 1 || isMockUser) {
+      userFiles = memoryStore.files
+        .filter(f => String(f.owner) === String(req.user._id))
+        .sort((a, b) => b.createdAt - a.createdAt);
+    } else {
+      userFiles = await File.find({ owner: req.user._id }).sort({ createdAt: -1 });
+    }
+
+    const filesData = userFiles.map(file => ({
+      id: file._id,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      expiration: file.expiration,
+      downloadLimit: file.downloadLimit,
+      passwordProtected: file.passwordProtected,
+      notifyOnDownload: file.notifyOnDownload || false,
+      downloads: file.downloads || [],
+      downloadCount: file.downloadCount || 0,
+      uploadDate: file.createdAt
+    }));
+
+    res.write(`data: ${JSON.stringify({ type: 'FILES_UPDATE', files: filesData })}\n\n`);
+  } catch (err) {
+    console.error('Error sending initial SSE files:', err.message);
+  }
+
+  // Keep connection alive with a 15-second heartbeat ping
+  const keepAliveInterval = setInterval(() => {
+    try {
+      res.write(': keepalive ping\n\n');
+    } catch (err) {
+      // connection might have closed
+    }
+  }, 15000);
+
+  req.on('close', () => {
+    clearInterval(keepAliveInterval);
+    sseClients = sseClients.filter(c => c.id !== clientId);
+  });
 });
 
 module.exports = router;

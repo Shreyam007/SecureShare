@@ -253,23 +253,38 @@ function App() {
     }
   }, []);
 
-  // Sync user files when user logs in and visits dashboard files or upload page
+  // Real-time EventSource connection (SSE) for files updates
   useEffect(() => {
-    if (user && (dashboardTab === 'dashboard' || dashboardTab === 'upload')) {
-      fetchUserFiles();
-    }
-  }, [user, dashboardTab]);
+    const token = localStorage.getItem('token');
+    if (!token || !user) return;
 
-  // Poll files list for real-time updates when user is on dashboard
-  useEffect(() => {
-    if (!user || dashboardTab !== 'dashboard') return;
-    
-    const interval = setInterval(() => {
-      fetchUserFiles();
-    }, 4000); // Poll every 4 seconds
-    
-    return () => clearInterval(interval);
-  }, [user, dashboardTab]);
+    const sseUrl = `${API_BASE_URL}/files/sse?token=${encodeURIComponent(token)}`;
+    const eventSource = new EventSource(sseUrl);
+
+    // Initial load state
+    setFilesLoading(true);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'FILES_UPDATE') {
+          setUserFiles(data.files);
+          setFilesLoading(false);
+        }
+      } catch (err) {
+        console.error('Failed to parse SSE message:', err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('SSE connection error:', err);
+      setFilesLoading(false);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [user]);
 
   // Dynamically update active uploaded file controls on the server
   useEffect(() => {
@@ -381,11 +396,11 @@ function App() {
     }
   };
 
-  const fetchUserFiles = async () => {
+  const fetchUserFiles = async (showLoading = false) => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    setFilesLoading(true);
+    if (showLoading) setFilesLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/files`, {
         headers: {
@@ -399,7 +414,7 @@ function App() {
     } catch (err) {
       console.error('Error fetching files metadata:', err);
     } finally {
-      setFilesLoading(false);
+      if (showLoading) setFilesLoading(false);
     }
   };
 

@@ -6,14 +6,20 @@ const JWT_SECRET = process.env.JWT_SECRET || 'supersecretsecuresharekey123!';
 const protect = async (req, res, next) => {
   let token;
 
-  // Check for Token in Authorization Header (Bearer Token)
+  // Check for Token in Authorization Header or Query Parameter
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
+    // Get token from header
+    token = req.headers.authorization.split(' ')[1];
+  } else if (req.query && req.query.token) {
+    // Get token from query parameter (for SSE EventSource)
+    token = req.query.token;
+  }
+
+  if (token) {
     try {
-      // Get token from header
-      token = req.headers.authorization.split(' ')[1];
 
       // Handle Mock Authentication Flow directly
       if (token.startsWith('mock-token')) {
