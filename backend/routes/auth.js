@@ -9,7 +9,7 @@ const memoryStore = require('../config/memoryStore');
 const bcrypt = require('bcryptjs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretsecuresharekey123!';
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '135623497828-ffmbq9r8g32hhbi9jo44q97ganv29n5a.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '135623497828-uokgbi5mqe04t65u6gimfpqlhsk1s8u8.apps.googleusercontent.com';
 
 // Helper to generate JWT
 const generateToken = (id) => {
