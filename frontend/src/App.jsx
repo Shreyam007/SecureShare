@@ -130,8 +130,8 @@ const getApiBaseUrl = () => {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:5000/api';
   }
-  // Default to relative API route for Vercel builds
-  return `${window.location.origin}/api`;
+  // Default to live Render backend for production Vercel builds
+  return 'https://secureshare-1der.onrender.com/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
