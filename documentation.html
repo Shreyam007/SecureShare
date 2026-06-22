@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureShare - Developer Documentation</title>
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Premium CSS Design System */
+    :root {
+      --bg-dark: #090a0f;
+      --bg-card: rgba(17, 19, 31, 0.7);
+      --bg-sidebar: rgba(11, 12, 23, 0.95);
+      --primary: #6366f1;
+      --primary-glow: rgba(99, 102, 241, 0.15);
+      --accent: #d946ef;
+      --accent-glow: rgba(217, 70, 239, 0.15);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-highlight: #38bdf8;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --code-bg: #0d0e15;
+      --success: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      min-height: 100vh;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-dark);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+
+    /* Sticky Sidebar Layout */
+    .sidebar {
+      width: 320px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      padding: 2.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: white;
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+    }
+
+    .brand-name {
+      font-size: 1.4rem;
+      font-weight: 800;
+      background: linear-gradient(to right, #fff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-menu {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .nav-item a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      display: block;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border-left: 2px solid transparent;
+    }
+
+    .nav-item a:hover,
+    .nav-item.active a {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+      border-left: 2px solid var(--primary);
+    }
+
+    /* Main Content Styling */
+    .content {
+      margin-left: 320px;
+      flex: 1;
+      padding: 4rem 5rem;
+      max-width: 1200px;
+    }
+
+    .header-banner {
+      margin-bottom: 4rem;
+      position: relative;
+    }
+
+    .header-banner::after {
+      content: '';
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+      top: -150px;
+      right: -50px;
+      z-index: -1;
+    }
+
+    h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #fff 30%, var(--text-muted) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 1rem;
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 700px;
+    }
+
+    /* Section Cards */
+    section {
+      margin-bottom: 5rem;
+      scroll-margin-top: 4rem;
+    }
+
+    h2 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    h2::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 24px;
+      background: linear-gradient(to bottom, var(--primary), var(--accent));
+      border-radius: 4px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2.5rem;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      transition: border 0.3s ease;
+      margin-bottom: 2rem;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 102, 241, 0.25);
+    }
+
+    p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.7;
+    }
+
+    /* Lists and Badges */
+    .feature-list {
+      list-style: none;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-top: 1.5rem;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 1.25rem;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+    }
+
+    .feature-icon {
+      color: var(--primary);
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
+
+    .feature-title {
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+    }
+
+    .feature-desc {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    /* Code Blocks */
+    .code-container {
+      margin: 1.5rem 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .code-header {
+      background: rgba(255,255,255,0.03);
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .code-lang {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    code, pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+    }
+
+    pre {
+      background: var(--code-bg);
+      padding: 1.5rem;
+      overflow-x: auto;
+      color: #e2e8f0;
+    }
+
+    /* Highlight syntax coloring */
+    .token.keyword { color: #f43f5e; }
+    .token.string { color: #10b981; }
+    .token.function { color: #3b82f6; }
+    .token.comment { color: #64748b; font-style: italic; }
+    .token.variable { color: #f59e0b; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 2rem 0;
+      background: rgba(255, 255, 255, 0.01);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    th, td {
+      padding: 1rem 1.25rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.03);
+      font-weight: 600;
+      color: var(--text-main);
+      font-size: 0.9rem;
+    }
+
+    td {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Geolocation & Status Badges */
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .badge-primary {
+      background: var(--primary-glow);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+
+    .badge-accent {
+      background: var(--accent-glow);
+      color: #f472b6;
+      border: 1px solid rgba(217, 70, 239, 0.3);
+    }
+
+    .badge-success {
+      background: rgba(16, 185, 129, 0.1);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+      body {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        position: relative;
+        padding: 2rem;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .content {
+        margin-left: 0;
+        padding: 3rem 2rem;
+      }
+      .feature-list {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sticky Left Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">S</div>
+      <div class="brand-name">SecureShare</div>
+    </div>
+    <ul class="nav-menu">
+      <li class="nav-item active"><a href="#overview">Overview</a></li>
+      <li class="nav-item"><a href="#sse-sync">Real-time SSE</a></li>
+      <li class="nav-item"><a href="#brevo-api">Brevo HTTP API</a></li>
+      <li class="nav-item"><a href="#geolocation">Geolocation logs</a></li>
+      <li class="nav-item"><a href="#google-oauth">Google Sign-in</a></li>
+      <li class="nav-item"><a href="#vercel-spa">Vercel SPA Config</a></li>
+      <li class="nav-item"><a href="#variables">Environment Settings</a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Content Body -->
+  <main class="content">
+    <header class="header-banner">
+      <h1>Developer Documentation</h1>
+      <p class="subtitle">Detailed guide of the premium features, dynamic sync operations, and deployment parameters implemented for the SecureShare web ecosystem.</p>
+    </header>
+
+    <!-- Overview Section -->
+    <section id="overview">
+      <h2>Architecture & Overview</h2>
+      <div class="card">
+        <p><strong>SecureShare</strong> is a state-of-the-art secure platform that supports zero-disk buffer AES-256 client/server encrypted file sharing. The system integrates standard database schemas with real-time updates and fully asynchronous SMTP notifications.</p>
+        
+        <div class="feature-list">
+          <div class="feature-item">
+            <svg class="feature-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <div>
+              <div class="feature-title">Server-Sent Events (SSE)</div>
+              <div class="feature-desc">Replaced high-overhead HTTP polling with active broadcast event streams.</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <svg class="feature-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 19v-8.93a2 2 0 01.89-1.664l8-5.333a2 2 0 012.22 0l8 5.333A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76"/></svg>
+            <div>
+              <div class="feature-title">Brevo REST Email Alerts</div>
+              <div class="feature-desc">Routed transactional emails over HTTPS API to bypass outbound SMTP firewall blocks.</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <svg class="feature-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <div>
+              <div class="feature-title">Country Geolocation logs</div>
+              <div class="feature-desc">Resolved downloader location to country name and flags seamlessly.</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <svg class="feature-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <div>
+              <div class="feature-title">Secure SPA Routing</div>
+              <div class="feature-desc">Preserved client-side push states under Vercel redirects, stopping 404 pages.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SSE Real-time Section -->
+    <section id="sse-sync">
+      <h2>Real-Time Sync via Server-Sent Events (SSE)</h2>
+      <div class="card">
+        <p>Rather than continuously querying the database every 4 seconds, the system establishes a long-running, unidirectional connection from the client to the server using the HTML5 <code>EventSource</code> protocol. When stats change, updates are pushed instantly.</p>
+        
+        <div class="code-container">
+          <div class="code-header">
+            <span class="code-lang">Express Endpoint</span>
+          </div>
+          <pre><code><span class="token comment">// sseRoute in routes/files.js</span>
+router.get(<span class="token string">'/sse'</span>, authMiddleware, (req, res) => {
+  res.setHeader(<span class="token string">'Content-Type'</span>, <span class="token string">'text/event-stream'</span>);
+  res.setHeader(<span class="token string">'Cache-Control'</span>, <span class="token string">'no-cache'</span>);
+  res.setHeader(<span class="token string">'Connection'</span>, <span class="token string">'keep-alive'</span>);
+
+  <span class="token keyword">const</span> clientId = Date.now();
+  <span class="token keyword">const</span> newClient = { id: clientId, userId: req.user._id, res };
+  sseClients.push(newClient);
+
+  <span class="token comment">// Broadcast helper to sync changes</span>
+  res.write(<span class="token string">`data: ${JSON.stringify({ type: 'CONNECTED' })}\n\n`</span>);
+
+  req.on(<span class="token string">'close'</span>, () => {
+    sseClients = sseClients.filter(c => c.id !== clientId);
+  });
+});</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Brevo REST API Section -->
+    <section id="brevo-api">
+      <h2>Brevo HTTP REST Email API</h2>
+      <div class="card">
+        <p>Because cloud environments like Render restrict outgoing SMTP ports (25, 587, 465) on free instances, we bypassed this network filter by making standard, secure HTTP POST calls to Brevo's Transactional Email API.</p>
+        
+        <div class="code-container">
+          <div class="code-header">
+            <span class="code-lang">Nodemailer to HTTP REST Transfomer</span>
+          </div>
+          <pre><code><span class="token keyword">const</span> sendDownloadAlert = <span class="token keyword">async</span> (uploaderEmail, fileName, timestamp, country) => {
+  <span class="token keyword">const</span> senderEmail = process.env.SENDER_EMAIL || process.env.SMTP_USER;
+  
+  <span class="token comment">// Connects to Brevo API over standard HTTPS Port 443</span>
+  <span class="token keyword">const</span> response = <span class="token keyword">await</span> fetch(<span class="token string">'https://api.brevo.com/v3/smtp/email'</span>, {
+    method: <span class="token string">'POST'</span>,
+    headers: {
+      <span class="token string">'api-key'</span>: process.env.SMTP_PASS,
+      <span class="token string">'Content-Type'</span>: <span class="token string">'application/json'</span>
+    },
+    body: JSON.stringify({
+      sender: { name: <span class="token string">"SecureShare"</span>, email: senderEmail },
+      to: [{ email: uploaderEmail }],
+      subject: <span class="token string">`📥 File Downloaded: ${fileName}`</span>,
+      htmlContent: htmlTemplate
+    })
+  });
+};</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Geolocation logs Section -->
+    <section id="geolocation">
+      <h2>Geolocation & Location Mapping</h2>
+      <div class="card">
+        <p>Upon file request, the backend extracts the download client's outbound IP address. Using <code>ip-api.com</code>, it decodes the region parameters and transforms the country code into flag emojis.</p>
+        
+        <div class="code-container">
+          <div class="code-header">
+            <span class="code-lang">Flag Resolver Helper</span>
+          </div>
+          <pre><code><span class="token keyword">const</span> getFlagEmoji = (countryCode) => {
+  <span class="token keyword">if</span> (!countryCode) <span class="token keyword">return</span> <span class="token string">'🌐'</span>;
+  <span class="token keyword">const</span> codePoints = countryCode
+    .toUpperCase()
+    .split(<span class="token string">''</span>)
+    .map(char => <span class="token variable">127397</span> + char.charCodeAt(<span class="token variable">0</span>));
+  <span class="token keyword">return</span> String.fromCodePoint(...codePoints);
+};</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Google Sign-in Section -->
+    <section id="google-oauth">
+      <h2>Google Sign-in OAuth Configuration</h2>
+      <div class="card">
+        <p>Integrates the official <code>google-auth-library</code> to verify tokens securely on the backend without utilizing client secrets in the browser bundle.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Domain Origin</th>
+              <th>Authorized JS Origin</th>
+              <th>Authorized Redirect URI</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Local Environment</td>
+              <td><code>http://localhost:5173</code></td>
+              <td><code>http://localhost:5173/login</code></td>
+            </tr>
+            <tr>
+              <td>Vercel Production</td>
+              <td><code>https://secureshare-five.vercel.app</code></td>
+              <td><code>https://secureshare-five.vercel.app/login</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Vercel SPA Config Section -->
+    <section id="vercel-spa">
+      <h2>Vercel Single-Page App (SPA) Routing</h2>
+      <div class="card">
+        <p>To support standard React push state navigation without causing Vercel to look up file pages locally and throw <code>404</code> errors, we defined explicit rewrites in the project config root.</p>
+        
+        <div class="code-container">
+          <div class="code-header">
+            <span class="code-lang">vercel.json</span>
+          </div>
+          <pre><code>{
+  <span class="token string">"rewrites"</span>: [
+    {
+      <span class="token string">"source"</span>: <span class="token string">"/api/(.*)"</span>,
+      <span class="token string">"destination"</span>: <span class="token string">"/api/index.js"</span>
+    },
+    {
+      <span class="token string">"source"</span>: <span class="token string">"/((?!api).*)"</span>,
+      <span class="token string">"destination"</span>: <span class="token string">"/index.html"</span>
+    }
+  ]
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Environment Variables Section -->
+    <section id="variables">
+      <h2>Environment Configuration Parameters</h2>
+      <div class="card">
+        <p>To run the application, configure the following key-value pairs in your environment variables:</p>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Variable Key</th>
+              <th>Service</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>VITE_API_URL</code></td>
+              <td>Vercel (Frontend)</td>
+              <td>The live address of the backend server (e.g. <code>https://secureshare-1der.onrender.com</code>).</td>
+            </tr>
+            <tr>
+              <td><code>MONGO_URI</code></td>
+              <td>Render (Backend)</td>
+              <td>MongoDB connection string.</td>
+            </tr>
+            <tr>
+              <td><code>JWT_SECRET</code></td>
+              <td>Render (Backend)</td>
+              <td>Private key used to sign client authorization tokens.</td>
+            </tr>
+            <tr>
+              <td><code>GOOGLE_CLIENT_ID</code></td>
+              <td>Render & Vercel</td>
+              <td>Google OAuth Client ID.</td>
+            </tr>
+            <tr>
+              <td><code>SMTP_USER</code></td>
+              <td>Render (Backend)</td>
+              <td>Brevo login username (e.g. <code>af7685001@smtp-brevo.com</code>).</td>
+            </tr>
+            <tr>
+              <td><code>SMTP_PASS</code></td>
+              <td>Render (Backend)</td>
+              <td>Brevo REST API key / password (starts with <code>xkeysib-</code>).</td>
+            </tr>
+            <tr>
+              <td><code>SENDER_EMAIL</code></td>
+              <td>Render (Backend)</td>
+              <td>Your verified Brevo sender email address (e.g. <code>p.shreyambbk@gmail.com</code>).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Smooth scrolling active state updater
+    const sections = document.querySelectorAll('section');
+    const navItems = document.querySelectorAll('.nav-item');
+
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (pageYOffset >= (sectionTop - 150)) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navItems.forEach(item => {
+        item.classList.remove('active');
+        const link = item.querySelector('a').getAttribute('href').substring(1);
+        if (link === current) {
+          item.classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
