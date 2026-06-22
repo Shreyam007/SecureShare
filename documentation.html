@@ -381,6 +381,95 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* Print / PDF Styling */
+    @media print {
+      body {
+        background: #ffffff;
+        color: #1f2937;
+        display: block;
+      }
+      .sidebar {
+        display: none;
+      }
+      .content {
+        margin-left: 0;
+        padding: 1.5cm;
+        max-width: 100%;
+      }
+      .header-banner {
+        margin-bottom: 2.5rem;
+      }
+      .header-banner::after {
+        display: none;
+      }
+      .card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        box-shadow: none;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+      }
+      h1 {
+        background: none;
+        -webkit-text-fill-color: initial;
+        color: #111827;
+      }
+      h2 {
+        background: none;
+        -webkit-text-fill-color: initial;
+        color: #111827;
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+      h2::before {
+        background: #6366f1;
+      }
+      p, td, th {
+        color: #374151;
+      }
+      .feature-item {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .feature-title {
+        color: #111827;
+      }
+      .feature-desc {
+        color: #4b5563;
+      }
+      pre {
+        background: #f9fafb;
+        color: #1f2937;
+        border: 1px solid #e5e7eb;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        white-space: pre-wrap; /* Wrap long code lines in PDF */
+        word-wrap: break-word;
+      }
+      .token.keyword { color: #d01337; font-weight: bold; }
+      .token.string { color: #0f766e; }
+      .token.function { color: #1e3a8a; }
+      .token.comment { color: #6b7280; }
+      .token.variable { color: #b45309; }
+      table {
+        border: 1px solid #e5e7eb;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      th {
+        background: #f3f4f6;
+        color: #111827;
+        border-bottom: 2px solid #e5e7eb;
+      }
+      td {
+        border-bottom: 1px solid #e5e7eb;
+      }
+    }
   </style>
 </head>
 <body>
